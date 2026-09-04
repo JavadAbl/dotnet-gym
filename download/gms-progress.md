@@ -1,10 +1,10 @@
 # GMS Progress Tracker
 
-Weighted total: **▓▓▓▓▓▓▓▓░░░░░░░░░░░░ 42%**
+Weighted total: **▓▓▓▓▓▓▓▓▓▓▓░░░░░░░░░░ 55%**
 
-> Updated: 2026-09-05 — Phase 3 (Sales) delivered end-to-end and browser-verified.
-> Note: while wiring Sales, three latent Phase 0 compile blockers were found and fixed
-> (missing TargetFramework/ImplicitUsings, missing DI global usings, missing Api project refs).
+> Updated: 2026-09-05 — Phase 4 (Attendance) delivered end-to-end and browser-verified.
+> Check-in gate consumes sessions atomically via `ISalesModule.TryConsumeSessionAsync`;
+> reception dialog stays open for rapid successive swipes.
 
 ## Phase 0 — Solution skeleton (8%) ✅ rebuilt
 - [x] `Gms.sln` + BuildingBlocks + Api host + 9 modules with `.Public` contract projects
@@ -36,10 +36,15 @@ Weighted total: **▓▓▓▓▓▓▓▓░░░░░░░░░░░░ 4
 - [x] Frontend: Sales workspace (member packages + receipts tabs, filters, session progress bars, row actions), sell-package dialog (member search, branch-scoped packages, wallet balance + insufficient guard), refund dialog (pro-rata prefill, editable amount, reason), member detail sheet shows real packages + sell shortcut; fa/en + RTL + Jalali
 - [x] Verified: eslint/tsc/next build clean; browser E2E — freeze/unfreeze, wallet purchase (ledger 5M→2.5M→0→2.5M), refund credit-back, receipts tab, member sheet, EN/LTR, mobile 390px; zero console errors
 
-## Phase 4 — Attendance (13%) ⬜
-- [ ] Card-swipe check-in with entry validation
-- [ ] Atomic session consumption (`UPDATE ... WHERE SessionsUsed < SessionsTotal`)
-- [ ] Live presence board + history
+## Phase 4 — Attendance (13%) ✅
+- [x] Card-swipe check-in `POST /api/v1/attendance/check-in` with the full entry-validation pipeline (plan §2): member Active → no open visit → package Active / not frozen / not expired / sessions remaining / granted to the branch (via `ICatalogModule`), precise per-case errorCodes (`attendance.member_inactive|package_frozen|package_expired|no_sessions_remaining|branch_not_allowed|no_active_package`)
+- [x] Atomic session consumption through `ISalesModule.TryConsumeSessionAsync` (one conditional `ExecuteUpdate WHERE SessionsUsed < SessionsTotal`); pre-validation is UX only, the UPDATE is the source of truth; FEFO package choice (soonest expiry first)
+- [x] `AttendanceEntry` (memberId, memberPackageId, branchId, checkInAt, checkOutAt) + `AttendanceDbContext` (own SQLite file) with a partial unique index (`MemberId WHERE CheckOutAtUtc IS NULL`) — one open visit per member, enforced at the DB level
+- [x] Branch derivation from JWT `branchId` claim (reception pinned) or explicit branchId (admin); concurrent-swipe backstop via unique-index `DbUpdateException` → 409
+- [x] Check-out `POST /attendance/entries/{id}/check-out` · live presence board `GET /attendance/presence` (open visits + visitsToday, Staff policy) · paged history `GET /attendance` (search via `IMembersModule.FindIdsAsync` — no JOINs)
+- [x] `IAttendanceModule` public contract (`IsMemberPresentAsync`, `GetForMemberAsync`) ready for Coaching/dashboards; demo seeds: 2 members in the gym now + 2 closed visits, resolved via public contracts
+- [x] Frontend: Attendance workspace (stat chips, live presence card grid with 30 s auto-refresh + check-out, history table with search/branch filters + pager), rapid-swipe check-in dialog (stays open, inline success/denial panels, branch picker for admin / pinned label for reception), member sheet "visit history" section, dashboard phase-note → attendance link; fa/en + RTL + Jalali
+- [x] Verified: eslint/tsc/next build clean; browser E2E — inactive denied, valid swipe consumes (3→4/12), duplicate denied, South-only Basic rejected @ North + accepted @ South, check-out closes board row, history/presence consistent, EN/LTR + mobile 390px; zero console errors
 
 ## Phase 5 — Wallet (10%) ⬜
 - [ ] Wallet account + top-up receipt, ledger with BalanceAfter

@@ -5,6 +5,7 @@ import { Toaster, toast } from "sonner";
 import { listBranches, listPackages, setMemberStatus } from "@/lib/gms/api";
 import type { Branch, ExercisePackage, Member, MemberPackage, MemberStatus } from "@/lib/gms/types";
 import { AppShell, type ViewKey } from "@/components/gms/app-shell";
+import { AttendanceView } from "@/components/gms/attendance-view";
 import { BranchesView } from "@/components/gms/branches-view";
 import { DashboardView } from "@/components/gms/dashboard-view";
 import { LoginView } from "@/components/gms/login-view";
@@ -129,7 +130,7 @@ function Workspace() {
 
   return (
     <AppShell view={view} onViewChange={setView}>
-      {view === "dashboard" ? <DashboardView onOpenMembers={() => setView("members")} /> : null}
+      {view === "dashboard" ? <DashboardView onOpenAttendance={() => setView("attendance")} /> : null}
       {view === "members" ? (
         <MembersView
           branches={branches}
@@ -139,6 +140,7 @@ function Workspace() {
           refreshSignal={membersRefresh}
         />
       ) : null}
+      {view === "attendance" ? <AttendanceView branches={branches} /> : null}
       {view === "sales" ? (
         <SalesView
           branches={branches}

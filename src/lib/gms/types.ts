@@ -186,6 +186,49 @@ export interface ReceiptQuery {
   pageSize?: number;
 }
 
+// ---------------------------------------------------------------- attendance (Phase 4)
+
+export interface AttendanceEntry {
+  id: string;
+  memberId: string;
+  memberPackageId: string;
+  branchId: string;
+  checkInAtUtc: string;
+  checkOutAtUtc?: string | null;
+  durationMinutes: number;
+  isPresent: boolean;
+  // enrichment resolved by the API / demo adapter
+  memberCode: string;
+  memberFullName: string;
+  packageNameEn: string;
+  packageNameFa: string;
+  branchNameEn: string;
+  branchNameFa: string;
+  // live state of the consumed member package
+  sessionsTotal?: number | null;
+  sessionsUsed?: number | null;
+  sessionsRemaining?: number | null;
+}
+
+export interface PresenceBoard {
+  items: AttendanceEntry[];
+  count: number;
+  visitsToday: number;
+}
+
+export interface CheckInRequest {
+  cardCode: string;
+  branchId?: string;
+}
+
+export interface AttendanceQuery {
+  search?: string;
+  memberId?: string;
+  branchId?: string;
+  page?: number;
+  pageSize?: number;
+}
+
 // ---------------------------------------------------------------- wallet (minimal core for wallet payments)
 
 export interface WalletTransaction {

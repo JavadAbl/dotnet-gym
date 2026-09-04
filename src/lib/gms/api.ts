@@ -3,6 +3,12 @@
 // - Otherwise falls back to the in-browser demo adapter (same contract).
 
 import {
+  demoCheckIn,
+  demoCheckOut,
+  demoPresence,
+  demoSearchAttendance,
+} from "./demo-attendance";
+import {
   demoCreateMember,
   demoGetMember,
   demoListBranches,
@@ -25,8 +31,11 @@ import {
 } from "./demo-sales";
 import { GmsApiError } from "./demo-store";
 import type {
+  AttendanceEntry,
+  AttendanceQuery,
   Branch,
   BuffetProduct,
+  CheckInRequest,
   ExercisePackage,
   LoginResponse,
   Member,
@@ -37,6 +46,7 @@ import type {
   MemberStatus,
   MemberWriteModel,
   PagedResult,
+  PresenceBoard,
   PurchaseRequest,
   Receipt,
   RefundRequest,
@@ -222,6 +232,38 @@ export function listReceipts(query: {
   params.set("page", String(query.page ?? 1));
   params.set("pageSize", String(query.pageSize ?? 10));
   return request<PagedResult<Receipt>>(`/sales/receipts?${params.toString()}`);
+}
+
+// ---------------------------------------------------------------- attendance (Phase 4)
+
+export function checkIn(req: CheckInRequest): Promise<AttendanceEntry> {
+  if (isDemoMode) return demoCheckIn(req);
+  return request<AttendanceEntry>("/attendance/check-in", {
+    method: "POST",
+    body: JSON.stringify(req),
+  });
+}
+
+export function checkOut(entryId: string): Promise<AttendanceEntry> {
+  if (isDemoMode) return demoCheckOut(entryId);
+  return request<AttendanceEntry>(`/attendance/entries/${entryId}/check-out`, { method: "POST" });
+}
+
+export function getPresence(branchId?: string): Promise<PresenceBoard> {
+  if (isDemoMode) return demoPresence(branchId);
+  const query = branchId ? `?branchId=${encodeURIComponent(branchId)}` : "";
+  return request<PresenceBoard>(`/attendance/presence${query}`);
+}
+
+export function searchAttendance(query: AttendanceQuery): Promise<PagedResult<AttendanceEntry>> {
+  if (isDemoMode) return demoSearchAttendance(query);
+  const params = new URLSearchParams();
+  if (query.search) params.set("search", query.search);
+  if (query.memberId) params.set("memberId", query.memberId);
+  if (query.branchId) params.set("branchId", query.branchId);
+  params.set("page", String(query.page ?? 1));
+  params.set("pageSize", String(query.pageSize ?? 20));
+  return request<PagedResult<AttendanceEntry>>(`/attendance?${params.toString()}`);
 }
 
 // ---------------------------------------------------------------- wallet (minimal core, Phase 3)

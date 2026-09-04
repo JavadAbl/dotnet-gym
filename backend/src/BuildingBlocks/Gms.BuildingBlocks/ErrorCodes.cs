@@ -41,4 +41,17 @@ public static class ErrorCodes
     public const string WalletAccountNotFound = "wallet.account_not_found";
     public const string WalletInsufficientBalance = "wallet.insufficient_balance";
     public const string WalletInvalidAmount = "wallet.invalid_amount";
+
+    // attendance
+    public const string AttendanceMemberNotFound = "attendance.member_not_found";
+    public const string AttendanceMemberInactive = "attendance.member_inactive";
+    public const string AttendanceAlreadyCheckedIn = "attendance.already_checked_in";
+    public const string AttendanceNoActivePackage = "attendance.no_active_package";
+    public const string AttendancePackageFrozen = "attendance.package_frozen";
+    public const string AttendancePackageExpired = "attendance.package_expired";
+    public const string AttendanceNoSessionsRemaining = "attendance.no_sessions_remaining";
+    public const string AttendanceBranchNotAllowed = "attendance.branch_not_allowed";
+    public const string AttendanceEntryConflict = "attendance.entry_conflict";
+    public const string AttendanceEntryNotFound = "attendance.entry_not_found";
+    public const string AttendanceAlreadyCheckedOut = "attendance.already_checked_out";
 }

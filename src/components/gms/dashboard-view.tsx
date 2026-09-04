@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Dumbbell, MapPin, ShieldCheck, Users } from "lucide-react";
+import { Dumbbell, MapPin, ScanLine, ShieldCheck, Users } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { listBranches, listPackages, searchMembers } from "@/lib/gms/api";
@@ -14,7 +14,7 @@ interface Stats {
   packages: number;
 }
 
-export function DashboardView({ onOpenMembers }: { onOpenMembers: () => void }) {
+export function DashboardView({ onOpenAttendance }: { onOpenAttendance: () => void }) {
   const { t, locale } = useI18n();
   const [stats, setStats] = React.useState<Stats | null>(null);
   const [error, setError] = React.useState(false);
@@ -88,8 +88,8 @@ export function DashboardView({ onOpenMembers }: { onOpenMembers: () => void }) 
 
       <div className="rounded-xl border bg-card p-4 text-sm leading-relaxed text-muted-foreground">
         {t("dashboard.phaseNote")}
-        <button type="button" onClick={onOpenMembers} className="mx-1 font-medium text-emerald-700 underline-offset-4 hover:underline dark:text-emerald-400">
-          {t("nav.members")}
+        <button type="button" onClick={onOpenAttendance} className="mx-1 font-medium text-emerald-700 underline-offset-4 hover:underline dark:text-emerald-400">
+          {t("nav.attendance")}
         </button>
       </div>
     </div>

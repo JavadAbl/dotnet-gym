@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Ban, CircleCheck, Package, PackagePlus, Pencil } from "lucide-react";
+import { Ban, CircleCheck, Clock, Package, PackagePlus, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -11,9 +11,9 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { searchMemberPackages } from "@/lib/gms/api";
-import type { Branch, Member, MemberPackage, MemberStatus } from "@/lib/gms/types";
-import { formatDate, formatNumber } from "@/lib/gms/jalali";
+import { searchAttendance, searchMemberPackages } from "@/lib/gms/api";
+import type { AttendanceEntry, Branch, Member, MemberPackage, MemberStatus } from "@/lib/gms/types";
+import { formatDate, formatDateTime, formatNumber } from "@/lib/gms/jalali";
 import { PackageStatusBadge, StatusBadge } from "./status-badge";
 import { useI18n } from "./providers";
 
@@ -50,21 +50,31 @@ export function MemberDetailSheet({
   const { t, locale } = useI18n();
   const [pendingStatus, setPendingStatus] = React.useState<MemberStatus | null>(null);
   const [packages, setPackages] = React.useState<MemberPackage[] | null>(null);
+  const [visits, setVisits] = React.useState<AttendanceEntry[] | null>(null);
 
   // fetch the member's purchased packages whenever the sheet opens for a member
   React.useEffect(() => {
     if (!member) {
       setPackages(null);
+      setVisits(null);
       return;
     }
     let cancelled = false;
     setPackages(null);
+    setVisits(null);
     searchMemberPackages({ memberId: member.id, page: 1, pageSize: 20 })
       .then((result) => {
         if (!cancelled) setPackages(result.items);
       })
       .catch(() => {
         if (!cancelled) setPackages([]);
+      });
+    searchAttendance({ memberId: member.id, page: 1, pageSize: 5 })
+      .then((result) => {
+        if (!cancelled) setVisits(result.items);
+      })
+      .catch(() => {
+        if (!cancelled) setVisits([]);
       });
     return () => {
       cancelled = true;
@@ -189,6 +199,42 @@ export function MemberDetailSheet({
                               : `${t("sales.column.expiry")}: ${formatDate(pkg.expiresAtUtc, locale)}`}
                           </span>
                         </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+
+              <section>
+                <h4 className="flex items-center gap-2 pb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  <Clock className="h-3.5 w-3.5" />
+                  {t("attendance.tab.history")}
+                </h4>
+                {visits === null ? (
+                  <div className="h-16 animate-pulse rounded-lg border bg-muted/40" />
+                ) : visits.length === 0 ? (
+                  <p className="rounded-lg border border-dashed p-3 text-xs leading-relaxed text-muted-foreground">
+                    {t("attendance.empty.title")}
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {visits.map((visit) => (
+                      <div key={visit.id} className="rounded-lg border bg-card p-2.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="truncate text-sm font-medium">
+                            {locale === "fa" ? visit.packageNameFa : visit.packageNameEn}
+                          </p>
+                          <span
+                            className={`shrink-0 text-[11px] font-medium ${
+                              visit.isPresent ? "text-emerald-700 dark:text-emerald-400" : "text-muted-foreground"
+                            }`}
+                          >
+                            {visit.isPresent ? t("attendance.present") : t("attendance.left")}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-xs tabular-nums text-muted-foreground">
+                          {t("attendance.column.checkIn")}: {formatDateTime(visit.checkInAtUtc, locale)}
+                        </p>
                       </div>
                     ))}
                   </div>

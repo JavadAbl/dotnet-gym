@@ -55,3 +55,26 @@ Stage Summary:
 - Backend: cd backend && dotnet run --project src/Api/Gms.Api (admin/Admin@123) — sales + wallet endpoints under /api/v1 (Swagger UI at /swagger).
 - Frontend preview on :3000 (demo mode, DB key bumped to gms.demo.db.v3 → fresh seeds); real API via NEXT_PUBLIC_GMS_API_BASE.
 - Next: Phase 4 — Attendance (card-swipe check-in, entry validation, TryConsumeSessionAsync integration, live presence board, history).
+
+---
+Task ID: 4 (Phase 4 — Attendance module)
+Agent: main (Super Z)
+Task: Implement Phase 4 (Attendance) per gms-implementation-plan.md v1.1 roadmap
+
+Work Log:
+- Implemented Attendance module (own SQLite DB gms-attendance.db): entity AttendanceEntry (memberId, memberPackageId, branchId, checkInAtUtc, checkOutAtUtc); AttendanceDbContext with indexes + partial unique index (MemberId WHERE CheckOutAtUtc IS NULL) enforcing one open visit per member at DB level.
+- Check-in endpoint POST /api/v1/attendance/check-in (Management policy): card-code → branch resolution (JWT branchId claim pins reception/coach; admin passes explicit branchId) → member lookup via IMembersModule.GetByCardCodeAsync → member Active gate → open-visit gate → package gate (Active + not expired + sessions remaining via ISalesModule.GetForMemberAsync, branch access via ICatalogModule.IsPackageAvailableInBranchAsync — contract calls only, zero cross-module JOINs). Precise denial errorCodes: attendance.member_not_found | member_inactive | already_checked_in | package_frozen | package_expired | no_sessions_remaining | branch_not_allowed | no_active_package. FEFO package choice (earliest expiry first).
+- Session consumption = ISalesModule.TryConsumeSessionAsync (Phase 3 atomic ExecuteUpdate WHERE Status=Active AND Expires>now AND SessionsUsed<SessionsTotal) — pre-validation is UX only, the conditional UPDATE is the source of truth; race lost → attendance.entry_conflict (409). Concurrent same-member swipe backstop: unique-index DbUpdateException → 409 already_checked_in (consumed-session tradeoff documented in code).
+- Endpoints: POST /attendance/entries/{id}/check-out (409 already_checked_out) · GET /attendance/presence (open visits + visitsToday, Staff policy — coaches/buffet can watch the board) · GET /attendance paged history (search via IMembersModule.FindIdsAsync, memberId/branchId filters). IAttendanceModule public contract: IsMemberPresentAsync + GetForMemberAsync (for Coaching/dashboards). Enriched AttendanceEntryView (member/package/branch names + live sessions remaining) via public-contract lookups, hand-written mappings.
+- AttendanceSeeder (runs after SalesSeeder): Maryam + Sara currently in the gym (open entries), Ali closed visit yesterday (VIP @ North) + 3 days ago (Basic @ South), all resolved via public contracts; Reza intentionally absent (Inactive + frozen package = the "denied" demo story).
+- API host: Attendance connection string, AddAttendanceModule/MapAttendanceEndpoints, WAL bootstrap entry, seed order …sales→attendance; Api.csproj project ref.
+- Frontend: types (AttendanceEntry/PresenceBoard/CheckInRequest/AttendanceQuery); demo-store v4 (DB key bumped, attendance store + seed mirror); demo-attendance adapter mirroring endpoints + errorCodes exactly (incl. denial precedence classifier); api client checkIn/checkOut/getPresence/searchAttendance.
+- Attendance workspace: stat chips (present now / visits today), presence card grid (30 s auto-refresh, per-card check-out, pulsing "present" badge), history tab (search + branch filters, pager, duration formatting fa/en), rapid-swipe CheckInDialog (stays open for successive swipes, inline green success panel with member/package/remaining + red denial panel, autofocus card input, branch picker for admin vs pinned label for reception). Member sheet gained a VISIT HISTORY section (last 5 visits); dashboard phase note updated to Phase 4 with attendance shortcut; nav "attendance" (ScanLine).
+- i18n: +~70 fa/en keys (attendance.*, checkin.*, errors.attendance.*).
+- Verified: eslint clean, tsc clean (GMS sources), next build passes; agent-browser E2E: inactive member denied, Ali RF-0001 @ North accepted (3→4/12 used, remaining 8), duplicate swipe → already_checked_in, Sara's South-only Basic rejected @ North (branch_not_allowed) then accepted @ South (2→3/8, remaining 5), check-out closes board row + toast, presence stats 3 present / 4 visits today, history rows exact (Jalali dates, "۲ ساعت و ۰ دقیقه" durations), member sheet visits, EN/LTR switch, mobile 390px; zero console errors. Screenshots: download/gms-phase4-attendance.png, download/gms-phase4-mobile.png.
+
+Stage Summary:
+- Phase 4 complete. Weighted progress 42% → 55%.
+- Backend: cd backend && dotnet run --project src/Api/Gms.Api (admin/Admin@123) — attendance endpoints under /api/v1 (Swagger UI at /swagger).
+- Frontend preview on :3000 (demo mode, DB key gms.demo.db.v4 → fresh attendance seeds); real API via NEXT_PUBLIC_GMS_API_BASE.
+- Next: Phase 5 — Wallet completion (top-up endpoint/receipt UI; core ledger already pulled forward in Phase 3).

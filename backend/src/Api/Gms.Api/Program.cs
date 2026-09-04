@@ -1,6 +1,7 @@
 using Gms.Api.Extensions;
 using Gms.BuildingBlocks;
 using Gms.BuildingBlocks.Data;
+using Gms.Modules.Attendance;
 using Gms.Modules.Branches;
 using Gms.Modules.Branches.Public;
 using Gms.Modules.Catalog;
@@ -24,6 +25,7 @@ var catalogCs = builder.Configuration.GetConnectionString("Catalog") ?? "Data So
 var membersCs = builder.Configuration.GetConnectionString("Members") ?? "Data Source=data/gms-members.db";
 var salesCs = builder.Configuration.GetConnectionString("Sales") ?? "Data Source=data/gms-sales.db";
 var walletCs = builder.Configuration.GetConnectionString("Wallet") ?? "Data Source=data/gms-wallet.db";
+var attendanceCs = builder.Configuration.GetConnectionString("Attendance") ?? "Data Source=data/gms-attendance.db";
 
 Directory.CreateDirectory("data");
 
@@ -67,6 +69,7 @@ builder.Services.AddCatalogModule(catalogCs);
 builder.Services.AddMembersModule(membersCs);
 builder.Services.AddWalletModule(walletCs);
 builder.Services.AddSalesModule(salesCs);
+builder.Services.AddAttendanceModule(attendanceCs);
 
 // ---------------------------------------------------------------- swagger + cors (dev convenience)
 builder.Services.AddEndpointsApiExplorer();
@@ -112,6 +115,7 @@ app.MapCatalogEndpoints();
 app.MapMembersEndpoints();
 app.MapWalletEndpoints();
 app.MapSalesEndpoints();
+app.MapAttendanceEndpoints();
 
 // ---------------------------------------------------------------- boot: WAL + EnsureCreated + seeds (Phase 1 order)
 await Bootstrapper.InitializeDatabasesAsync(app.Services, new Dictionary<string, string>
@@ -122,6 +126,7 @@ await Bootstrapper.InitializeDatabasesAsync(app.Services, new Dictionary<string,
     ["Members"] = membersCs,
     ["Wallet"] = walletCs,
     ["Sales"] = salesCs,
+    ["Attendance"] = attendanceCs,
 });
 
 app.MapGet("/api/v1/health", () => Results.Ok(new { status = "ok", utc = DateTime.UtcNow }))

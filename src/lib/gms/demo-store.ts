@@ -3,6 +3,7 @@
 // It mirrors backend seeds (Phase 1) and member endpoints (Phase 2).
 
 import type {
+  AttendanceEntry,
   Branch,
   BuffetProduct,
   ExercisePackage,
@@ -19,7 +20,7 @@ import type {
   WalletTransaction,
 } from "./types";
 
-const DB_KEY = "gms.demo.db.v3";
+const DB_KEY = "gms.demo.db.v4";
 const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
 
 interface DemoUser {
@@ -46,6 +47,9 @@ export type DemoMemberPackageRecord = MemberPackage & {
 /** Ledger row incl. internal account linkage (not part of the API contract). */
 export type DemoWalletTransaction = WalletTransaction & { walletAccountId: string };
 
+/** Attendance entry stored fully enriched (the demo resolves names at read time). */
+export type DemoAttendanceRecord = AttendanceEntry;
+
 interface DemoDb {
   seededAt: string;
   users: DemoUser[];
@@ -57,6 +61,7 @@ interface DemoDb {
   receipts: Receipt[];
   walletAccounts: DemoWalletAccount[];
   walletTransactions: DemoWalletTransaction[];
+  attendance: DemoAttendanceRecord[];
 }
 
 export const uid = () =>
@@ -200,9 +205,11 @@ function seedDb(): DemoDb {
     receipts: [],
     walletAccounts: [],
     walletTransactions: [],
+    attendance: [],
   };
 
   seedDemoSales(db);
+  seedDemoAttendance(db);
   return db;
 }
 
@@ -501,6 +508,91 @@ function seedDemoSales(db: DemoDb): void {
     reason: "Member relocated (seed).",
     refundedAtUtc: daysFromNow(-38),
   };
+}
+
+// ---------------------------------------------------------------- Phase 4 demo seeds (mirror of AttendanceSeeder)
+
+const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
+
+function seedDemoAttendance(db: DemoDb): void {
+  const north = db.branches.find((b) => b.nameEn === "North Branch")!.id;
+  const south = db.branches.find((b) => b.nameEn === "South Branch")!.id;
+  const memberByCard = (card: string) => db.members.find((m) => m.cardCode === card)!;
+
+  const ali = memberByCard("RF-0001");
+  const sara = memberByCard("RF-0002");
+  const maryam = memberByCard("RF-0004");
+
+  // Active member packages (mirrors the backend resolving through the Sales contract).
+  const usable = (memberId: string, branchId: string) =>
+    db.memberPackages.find(
+      (mp) =>
+        mp.memberId === memberId &&
+        mp.status === "Active" &&
+        mp.expiresAtUtc > new Date().toISOString() &&
+        mp.sessionsUsed < mp.sessionsTotal &&
+        mp.branchId === branchId,
+    );
+
+  const maryamVip = usable(maryam.id, north);
+  const saraBasic = usable(sara.id, south);
+  const aliVip = usable(ali.id, north);
+  const aliBasicSouth = db.memberPackages.find((mp) => mp.memberId === ali.id && mp.branchId === south);
+
+  const toEntry = (
+    member: Member,
+    mp: DemoMemberPackageRecord,
+    branchId: string,
+    branchNameEn: string,
+    branchNameFa: string,
+    checkInAtUtc: string,
+    checkOutAtUtc: string | null,
+  ): DemoAttendanceRecord => {
+    const endMs = checkOutAtUtc ? new Date(checkOutAtUtc).getTime() : Date.now();
+    return {
+      id: uid(),
+      memberId: member.id,
+      memberPackageId: mp.id,
+      branchId,
+      checkInAtUtc,
+      checkOutAtUtc,
+      durationMinutes: Math.max(0, Math.floor((endMs - new Date(checkInAtUtc).getTime()) / 60_000)),
+      isPresent: checkOutAtUtc === null,
+      memberCode: member.code,
+      memberFullName: member.fullName,
+      packageNameEn: mp.packageNameEn,
+      packageNameFa: mp.packageNameFa,
+      branchNameEn,
+      branchNameFa,
+      sessionsTotal: mp.sessionsTotal,
+      sessionsUsed: mp.sessionsUsed,
+      sessionsRemaining: Math.max(0, mp.sessionsTotal - mp.sessionsUsed),
+    };
+  };
+
+  // 1) Maryam — IN THE GYM NOW @ North (open entry, 35 min)
+  if (maryamVip) {
+    db.attendance.push(toEntry(maryam, maryamVip, north, "North Branch", "شعبه شمال", minutesAgo(35), null));
+  }
+
+  // 2) Sara — IN THE GYM NOW @ South (open entry, 12 min)
+  if (saraBasic) {
+    db.attendance.push(toEntry(sara, saraBasic, south, "South Branch", "شعبه جنوب", minutesAgo(12), null));
+  }
+
+  // 3) Ali — visited yesterday @ North (closed)
+  if (aliVip) {
+    db.attendance.push(
+      toEntry(ali, aliVip, north, "North Branch", "شعبه شمال", minutesAgo(26 * 60), minutesAgo(24 * 60)),
+    );
+  }
+
+  // 4) Ali — visited 3 days ago @ South on Basic (closed)
+  if (aliBasicSouth) {
+    db.attendance.push(
+      toEntry(ali, aliBasicSouth, south, "South Branch", "شعبه جنوب", minutesAgo(74 * 60), minutesAgo(72 * 60)),
+    );
+  }
 }
 
 export function loadDb(): DemoDb {
