@@ -44,4 +44,38 @@ internal sealed class MembersModuleApi(MembersDbContext db) : Public.IMembersMod
     public async Task<bool> IsActiveAsync(Guid memberId, CancellationToken cancellationToken = default) =>
         await db.Members.AsNoTracking()
             .AnyAsync(m => m.Id == memberId && m.Status == Domain.MemberStatus.Active, cancellationToken);
+
+    public async Task<IReadOnlyList<Public.MemberPublicDto>> GetBatchAsync(
+        IReadOnlyCollection<Guid> memberIds, CancellationToken cancellationToken = default)
+    {
+        if (memberIds.Count == 0)
+        {
+            return [];
+        }
+
+        var members = await db.Members.AsNoTracking()
+            .Where(m => memberIds.Contains(m.Id))
+            .ToListAsync(cancellationToken);
+        return members.Select(m => m.ToPublicDto()).ToList();
+    }
+
+    public async Task<IReadOnlyList<Guid>> FindIdsAsync(string searchTerm, int limit = 50, CancellationToken cancellationToken = default)
+    {
+        var term = searchTerm.Trim();
+        if (term.Length == 0)
+        {
+            return [];
+        }
+
+        return await db.Members.AsNoTracking()
+            .Where(m =>
+                m.FullName.Contains(term) ||
+                m.Code.Contains(term) ||
+                (m.PhoneNumber != null && m.PhoneNumber.Contains(term)) ||
+                (m.CardCode != null && m.CardCode.Contains(term)))
+            .OrderBy(m => m.Code)
+            .Take(limit)
+            .Select(m => m.Id)
+            .ToListAsync(cancellationToken);
+    }
 }

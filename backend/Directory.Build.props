@@ -1,0 +1,12 @@
+<Project>
+
+  <!-- Shared build settings for every GMS project (Api + BuildingBlocks + 9 modules + .Public contracts). -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+</Project>

@@ -1,8 +1,22 @@
 <Project Sdk="Microsoft.NET.Sdk">
+
   <PropertyGroup>
     <RootNamespace>Gms.Modules.Wallet</RootNamespace>
   </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="8.0.11" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\..\..\BuildingBlocks\Gms.BuildingBlocks\Gms.BuildingBlocks.csproj" />
+    <ProjectReference Include="..\Gms.Modules.Wallet.Public\Gms.Modules.Wallet.Public.csproj" />
+    <!-- Cross-module via public contracts: wallet accounts belong to members resolved through Members. -->
+    <ProjectReference Include="..\Members\Gms.Modules.Members.Public\Gms.Modules.Members.Public.csproj" />
   </ItemGroup>
+
 </Project>

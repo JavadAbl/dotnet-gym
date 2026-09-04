@@ -8,6 +8,8 @@ using Gms.Modules.Identity;
 using Gms.Modules.Identity.Public;
 using Gms.Modules.Members;
 using Gms.Modules.Members.Public;
+using Gms.Modules.Sales;
+using Gms.Modules.Wallet;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -20,6 +22,8 @@ var identityCs = builder.Configuration.GetConnectionString("Identity") ?? "Data 
 var branchesCs = builder.Configuration.GetConnectionString("Branches") ?? "Data Source=data/gms-branches.db";
 var catalogCs = builder.Configuration.GetConnectionString("Catalog") ?? "Data Source=data/gms-catalog.db";
 var membersCs = builder.Configuration.GetConnectionString("Members") ?? "Data Source=data/gms-members.db";
+var salesCs = builder.Configuration.GetConnectionString("Sales") ?? "Data Source=data/gms-sales.db";
+var walletCs = builder.Configuration.GetConnectionString("Wallet") ?? "Data Source=data/gms-wallet.db";
 
 Directory.CreateDirectory("data");
 
@@ -61,6 +65,8 @@ builder.Services.AddIdentityModule(identityCs);
 builder.Services.AddBranchesModule(branchesCs);
 builder.Services.AddCatalogModule(catalogCs);
 builder.Services.AddMembersModule(membersCs);
+builder.Services.AddWalletModule(walletCs);
+builder.Services.AddSalesModule(salesCs);
 
 // ---------------------------------------------------------------- swagger + cors (dev convenience)
 builder.Services.AddEndpointsApiExplorer();
@@ -104,6 +110,8 @@ app.MapIdentityEndpoints();
 app.MapBranchEndpoints();
 app.MapCatalogEndpoints();
 app.MapMembersEndpoints();
+app.MapWalletEndpoints();
+app.MapSalesEndpoints();
 
 // ---------------------------------------------------------------- boot: WAL + EnsureCreated + seeds (Phase 1 order)
 await Bootstrapper.InitializeDatabasesAsync(app.Services, new Dictionary<string, string>
@@ -112,6 +120,8 @@ await Bootstrapper.InitializeDatabasesAsync(app.Services, new Dictionary<string,
     ["Branches"] = branchesCs,
     ["Catalog"] = catalogCs,
     ["Members"] = membersCs,
+    ["Wallet"] = walletCs,
+    ["Sales"] = salesCs,
 });
 
 app.MapGet("/api/v1/health", () => Results.Ok(new { status = "ok", utc = DateTime.UtcNow }))

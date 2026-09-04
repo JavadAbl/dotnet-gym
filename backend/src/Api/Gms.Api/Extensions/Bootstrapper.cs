@@ -4,6 +4,8 @@ using Gms.Modules.Branches.Public;
 using Gms.Modules.Catalog;
 using Gms.Modules.Identity;
 using Gms.Modules.Members;
+using Gms.Modules.Sales;
+using Gms.Modules.Wallet;
 using Microsoft.AspNetCore.Diagnostics;
 
 namespace Gms.Api.Extensions;
@@ -18,7 +20,8 @@ internal static class Bootstrapper
             await SqliteBootstrapper.EnforceWalAsync(connectionString);
         }
 
-        // Seed order matters: branches → identity (links operators) → catalog (grants access) → members (demo data).
+        // Seed order matters: branches → identity (links operators) → catalog (grants access)
+        // → members (demo data) → wallet (opening balances for demo members) → sales (demo purchases).
         using (var scope = services.CreateScope())
         {
             await BranchesSeeder.SeedAsync(scope.ServiceProvider);
@@ -34,6 +37,8 @@ internal static class Bootstrapper
         }
 
         await MembersSeeder.SeedAsync(services);
+        await WalletSeeder.SeedAsync(services);
+        await SalesSeeder.SeedAsync(services);
     }
 }
 

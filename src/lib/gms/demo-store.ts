@@ -8,13 +8,18 @@ import type {
   ExercisePackage,
   LoginResponse,
   Member,
+  MemberPackage,
   MemberQuery,
   MemberStatus,
   MemberWriteModel,
+  PackageFreeze,
+  PackageRefund,
   PagedResult,
+  Receipt,
+  WalletTransaction,
 } from "./types";
 
-const DB_KEY = "gms.demo.db.v2";
+const DB_KEY = "gms.demo.db.v3";
 const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
 
 interface DemoUser {
@@ -26,6 +31,21 @@ interface DemoUser {
   branchId?: string | null;
 }
 
+interface DemoWalletAccount {
+  id: string;
+  memberId: string;
+  balanceToman: number;
+}
+
+/** Stored record incl. the audit data served by the package-detail endpoint. */
+export type DemoMemberPackageRecord = MemberPackage & {
+  freezes: PackageFreeze[];
+  refund: PackageRefund | null;
+};
+
+/** Ledger row incl. internal account linkage (not part of the API contract). */
+export type DemoWalletTransaction = WalletTransaction & { walletAccountId: string };
+
 interface DemoDb {
   seededAt: string;
   users: DemoUser[];
@@ -33,9 +53,13 @@ interface DemoDb {
   packages: ExercisePackage[];
   products: BuffetProduct[];
   members: Member[];
+  memberPackages: DemoMemberPackageRecord[];
+  receipts: Receipt[];
+  walletAccounts: DemoWalletAccount[];
+  walletTransactions: DemoWalletTransaction[];
 }
 
-const uid = () =>
+export const uid = () =>
   typeof crypto !== "undefined" && "randomUUID" in crypto
     ? crypto.randomUUID()
     : `id-${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
@@ -100,7 +124,63 @@ function seedDb(): DemoDb {
     },
   ];
 
-  return {
+  const packages: ExercisePackage[] = [
+    {
+      id: uid(),
+      nameEn: "VIP — 12 Sessions / 1 Month",
+      nameFa: "ویژه — ۱۲ جلسه / یک ماه",
+      sessionsCount: 12,
+      durationDays: 30,
+      priceToman: 2_500_000,
+      isActive: true,
+      branchIds: [northId, southId],
+    },
+    {
+      id: uid(),
+      nameEn: "Basic — 8 Sessions / 2 Weeks",
+      nameFa: "پایه — ۸ جلسه / دو هفته",
+      sessionsCount: 8,
+      durationDays: 14,
+      priceToman: 1_200_000,
+      isActive: true,
+      branchIds: [southId],
+    },
+  ];
+
+  const products: BuffetProduct[] = [
+    {
+      id: uid(),
+      nameEn: "Water 500ml",
+      nameFa: "آب معدنی ۵۰۰ میلی‌لیتر",
+      isActive: true,
+      prices: [
+        { branchId: northId, priceToman: 15_000 },
+        { branchId: southId, priceToman: 15_000 },
+      ],
+    },
+    {
+      id: uid(),
+      nameEn: "Protein Bar",
+      nameFa: "بار پروتئین",
+      isActive: true,
+      prices: [
+        { branchId: northId, priceToman: 85_000 },
+        { branchId: southId, priceToman: 95_000 },
+      ],
+    },
+    {
+      id: uid(),
+      nameEn: "Energy Drink",
+      nameFa: "نوشیدنی انرژی‌زا",
+      isActive: true,
+      prices: [
+        { branchId: northId, priceToman: 60_000 },
+        { branchId: southId, priceToman: 60_000 },
+      ],
+    },
+  ];
+
+  const db: DemoDb = {
     seededAt: now,
     users: [
       { id: uid(), username: "admin", password: "Admin@123", displayName: "مدیر سیستم", role: "admin", branchId: null },
@@ -113,65 +193,317 @@ function seedDb(): DemoDb {
       { id: northId, nameEn: "North Branch", nameFa: "شعبه شمال", city: "تهران", phoneNumber: "021-22000001", isActive: true },
       { id: southId, nameEn: "South Branch", nameFa: "شعبه جنوب", city: "تهران", phoneNumber: "021-22000002", isActive: true },
     ],
-    packages: [
-      {
-        id: uid(),
-        nameEn: "VIP — 12 Sessions / 1 Month",
-        nameFa: "ویژه — ۱۲ جلسه / یک ماه",
-        sessionsCount: 12,
-        durationDays: 30,
-        priceToman: 2_500_000,
-        isActive: true,
-        branchIds: [northId, southId],
-      },
-      {
-        id: uid(),
-        nameEn: "Basic — 8 Sessions / 2 Weeks",
-        nameFa: "پایه — ۸ جلسه / دو هفته",
-        sessionsCount: 8,
-        durationDays: 14,
-        priceToman: 1_200_000,
-        isActive: true,
-        branchIds: [southId],
-      },
-    ],
-    products: [
-      {
-        id: uid(),
-        nameEn: "Water 500ml",
-        nameFa: "آب معدنی ۵۰۰ میلی‌لیتر",
-        isActive: true,
-        prices: [
-          { branchId: northId, priceToman: 15_000 },
-          { branchId: southId, priceToman: 15_000 },
-        ],
-      },
-      {
-        id: uid(),
-        nameEn: "Protein Bar",
-        nameFa: "بار پروتئین",
-        isActive: true,
-        prices: [
-          { branchId: northId, priceToman: 85_000 },
-          { branchId: southId, priceToman: 95_000 },
-        ],
-      },
-      {
-        id: uid(),
-        nameEn: "Energy Drink",
-        nameFa: "نوشیدنی انرژی‌زا",
-        isActive: true,
-        prices: [
-          { branchId: northId, priceToman: 60_000 },
-          { branchId: southId, priceToman: 60_000 },
-        ],
-      },
-    ],
+    packages,
+    products,
     members,
+    memberPackages: [],
+    receipts: [],
+    walletAccounts: [],
+    walletTransactions: [],
+  };
+
+  seedDemoSales(db);
+  return db;
+}
+
+// ---------------------------------------------------------------- Phase 3 demo seeds (mirror of SalesSeeder/WalletSeeder)
+
+const daysFromNow = (days: number) => new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+
+function seedDemoSales(db: DemoDb): void {
+  const north = db.branches.find((b) => b.nameEn === "North Branch")!.id;
+  const south = db.branches.find((b) => b.nameEn === "South Branch")!.id;
+  const vip = db.packages.find((p) => p.nameEn.startsWith("VIP"))!;
+  const basic = db.packages.find((p) => p.nameEn.startsWith("Basic"))!;
+  const memberByCode = (code: string) => db.members.find((m) => m.code === code)!;
+
+  const ali = memberByCode("M-00001");
+  const sara = memberByCode("M-00002");
+  const reza = memberByCode("M-00003");
+  const maryam = memberByCode("M-00004");
+
+  // wallet accounts + opening top-ups (ledger consistent with backend seeds)
+  const credit = (memberId: string, amount: number, at: string) => {
+    let account = db.walletAccounts.find((a) => a.memberId === memberId);
+    if (!account) {
+      account = { id: uid(), memberId, balanceToman: 0 };
+      db.walletAccounts.push(account);
+    }
+    account.balanceToman += amount;
+    db.walletTransactions.push({
+      id: uid(),
+      walletAccountId: account.id,
+      amountToman: amount,
+      kind: "TopUp",
+      balanceAfter: account.balanceToman,
+      relatedReceiptId: null,
+      note: "Opening balance (seed).",
+      createdAtUtc: at,
+    });
+  };
+
+  const debit = (memberId: string, amount: number, kind: WalletTransaction["kind"], at: string, note: string, receiptId?: string) => {
+    const account = db.walletAccounts.find((a) => a.memberId === memberId)!;
+    account.balanceToman -= amount;
+    db.walletTransactions.push({
+      id: uid(),
+      walletAccountId: account.id,
+      amountToman: -amount,
+      kind,
+      balanceAfter: account.balanceToman,
+      relatedReceiptId: receiptId ?? null,
+      note,
+      createdAtUtc: at,
+    });
+  };
+
+  credit(ali.id, 5_000_000, daysFromNow(-7));
+  credit(sara.id, 3_000_000, daysFromNow(-7));
+  credit(reza.id, 500_000, daysFromNow(-7));
+  credit(maryam.id, 1_000_000, daysFromNow(-7));
+
+  // 1) Ali — VIP @ North, WALLET, Active (used 3/12)
+  const aliVipId = uid();
+  const aliVipReceiptId = uid();
+  db.memberPackages.push({
+    id: aliVipId,
+    memberId: ali.id,
+    packageId: vip.id,
+    branchId: north,
+    sessionsTotal: vip.sessionsCount,
+    sessionsUsed: 3,
+    startedAtUtc: daysFromNow(-6),
+    expiresAtUtc: daysFromNow(-6 + vip.durationDays),
+    status: "Active",
+    pricePaidToman: vip.priceToman,
+    memberCode: ali.code,
+    memberFullName: ali.fullName,
+    packageNameEn: vip.nameEn,
+    packageNameFa: vip.nameFa,
+    branchNameEn: "North Branch",
+    branchNameFa: "شعبه شمال",
+    isExpired: false,
+    freezes: [],
+    refund: null,
+  });
+  db.receipts.push({
+    id: aliVipReceiptId,
+    memberId: ali.id,
+    branchId: north,
+    memberPackageId: aliVipId,
+    kind: "PackagePurchase",
+    paymentMethod: "Wallet",
+    amountToman: vip.priceToman,
+    note: null,
+    createdAtUtc: daysFromNow(-6),
+    memberCode: ali.code,
+    memberFullName: ali.fullName,
+    branchNameEn: "North Branch",
+    branchNameFa: "شعبه شمال",
+    packageNameEn: vip.nameEn,
+    packageNameFa: vip.nameFa,
+  });
+  debit(ali.id, vip.priceToman, "PackagePurchase", daysFromNow(-6), "Package purchase: VIP (seed).", aliVipReceiptId);
+
+  // 2) Sara — Basic @ South, cash, Active (used 2/8)
+  const saraBasicId = uid();
+  db.memberPackages.push({
+    id: saraBasicId,
+    memberId: sara.id,
+    packageId: basic.id,
+    branchId: south,
+    sessionsTotal: basic.sessionsCount,
+    sessionsUsed: 2,
+    startedAtUtc: daysFromNow(-4),
+    expiresAtUtc: daysFromNow(-4 + basic.durationDays),
+    status: "Active",
+    pricePaidToman: basic.priceToman,
+    memberCode: sara.code,
+    memberFullName: sara.fullName,
+    packageNameEn: basic.nameEn,
+    packageNameFa: basic.nameFa,
+    branchNameEn: "South Branch",
+    branchNameFa: "شعبه جنوب",
+    isExpired: false,
+    freezes: [],
+    refund: null,
+  });
+  db.receipts.push({
+    id: uid(),
+    memberId: sara.id,
+    branchId: south,
+    memberPackageId: saraBasicId,
+    kind: "PackagePurchase",
+    paymentMethod: "Cash",
+    amountToman: basic.priceToman,
+    note: null,
+    createdAtUtc: daysFromNow(-4),
+    memberCode: sara.code,
+    memberFullName: sara.fullName,
+    branchNameEn: "South Branch",
+    branchNameFa: "شعبه جنوب",
+    packageNameEn: basic.nameEn,
+    packageNameFa: basic.nameFa,
+  });
+
+  // 3) Reza — VIP @ South, cash, FROZEN 2 days ago (used 5/12)
+  const rezaVipId = uid();
+  db.memberPackages.push({
+    id: rezaVipId,
+    memberId: reza.id,
+    packageId: vip.id,
+    branchId: south,
+    sessionsTotal: vip.sessionsCount,
+    sessionsUsed: 5,
+    startedAtUtc: daysFromNow(-20),
+    expiresAtUtc: daysFromNow(-20 + vip.durationDays),
+    status: "Frozen",
+    pricePaidToman: vip.priceToman,
+    memberCode: reza.code,
+    memberFullName: reza.fullName,
+    packageNameEn: vip.nameEn,
+    packageNameFa: vip.nameFa,
+    branchNameEn: "South Branch",
+    branchNameFa: "شعبه جنوب",
+    isExpired: false,
+    freezes: [],
+    refund: null,
+  });
+  db.receipts.push({
+    id: uid(),
+    memberId: reza.id,
+    branchId: south,
+    memberPackageId: rezaVipId,
+    kind: "PackagePurchase",
+    paymentMethod: "Cash",
+    amountToman: vip.priceToman,
+    note: null,
+    createdAtUtc: daysFromNow(-20),
+    memberCode: reza.code,
+    memberFullName: reza.fullName,
+    branchNameEn: "South Branch",
+    branchNameFa: "شعبه جنوب",
+    packageNameEn: vip.nameEn,
+    packageNameFa: vip.nameFa,
+  });
+
+  // 4) Maryam — VIP @ North, cash, Active (used 3/12)
+  const maryamVipId = uid();
+  db.memberPackages.push({
+    id: maryamVipId,
+    memberId: maryam.id,
+    packageId: vip.id,
+    branchId: north,
+    sessionsTotal: vip.sessionsCount,
+    sessionsUsed: 3,
+    startedAtUtc: daysFromNow(-10),
+    expiresAtUtc: daysFromNow(-10 + vip.durationDays),
+    status: "Active",
+    pricePaidToman: vip.priceToman,
+    memberCode: maryam.code,
+    memberFullName: maryam.fullName,
+    packageNameEn: vip.nameEn,
+    packageNameFa: vip.nameFa,
+    branchNameEn: "North Branch",
+    branchNameFa: "شعبه شمال",
+    isExpired: false,
+    freezes: [],
+    refund: null,
+  });
+  db.receipts.push({
+    id: uid(),
+    memberId: maryam.id,
+    branchId: north,
+    memberPackageId: maryamVipId,
+    kind: "PackagePurchase",
+    paymentMethod: "Cash",
+    amountToman: vip.priceToman,
+    note: null,
+    createdAtUtc: daysFromNow(-10),
+    memberCode: maryam.code,
+    memberFullName: maryam.fullName,
+    branchNameEn: "North Branch",
+    branchNameFa: "شعبه شمال",
+    packageNameEn: vip.nameEn,
+    packageNameFa: vip.nameFa,
+  });
+
+  // 5) Ali — Basic @ South, cash, REFUNDED (pro-rata 5/8 = 750,000)
+  const aliBasicId = uid();
+  const refundAmount = Math.floor((basic.priceToman * (basic.sessionsCount - 3)) / basic.sessionsCount);
+  db.memberPackages.push({
+    id: aliBasicId,
+    memberId: ali.id,
+    packageId: basic.id,
+    branchId: south,
+    sessionsTotal: basic.sessionsCount,
+    sessionsUsed: 3,
+    startedAtUtc: daysFromNow(-40),
+    expiresAtUtc: daysFromNow(-40 + basic.durationDays),
+    status: "Refunded",
+    pricePaidToman: basic.priceToman,
+    memberCode: ali.code,
+    memberFullName: ali.fullName,
+    packageNameEn: basic.nameEn,
+    packageNameFa: basic.nameFa,
+    branchNameEn: "South Branch",
+    branchNameFa: "شعبه جنوب",
+    isExpired: true,
+    freezes: [],
+    refund: null,
+  });
+  db.receipts.push(
+    {
+      id: uid(),
+      memberId: ali.id,
+      branchId: south,
+      memberPackageId: aliBasicId,
+      kind: "PackagePurchase",
+      paymentMethod: "Cash",
+      amountToman: basic.priceToman,
+      note: null,
+      createdAtUtc: daysFromNow(-40),
+      memberCode: ali.code,
+      memberFullName: ali.fullName,
+      branchNameEn: "South Branch",
+      branchNameFa: "شعبه جنوب",
+      packageNameEn: basic.nameEn,
+      packageNameFa: basic.nameFa,
+    },
+    {
+      id: uid(),
+      memberId: ali.id,
+      branchId: south,
+      memberPackageId: aliBasicId,
+      kind: "PackageRefund",
+      paymentMethod: "Cash",
+      amountToman: refundAmount,
+      note: "Member relocated (seed).",
+      createdAtUtc: daysFromNow(-38),
+      memberCode: ali.code,
+      memberFullName: ali.fullName,
+      branchNameEn: "South Branch",
+      branchNameFa: "شعبه جنوب",
+      packageNameEn: basic.nameEn,
+      packageNameFa: basic.nameFa,
+    },
+  );
+
+  // freeze + refund audit rows (queried via the package-detail endpoint)
+  const rezaVip = db.memberPackages.find((mp) => mp.id === rezaVipId)!;
+  rezaVip.freezes = [{ id: uid(), frozenAtUtc: daysFromNow(-2), unfrozenAtUtc: null, frozenDays: null }];
+  rezaVip.refund = null;
+  const aliBasic = db.memberPackages.find((mp) => mp.id === aliBasicId)!;
+  aliBasic.freezes = [];
+  aliBasic.refund = {
+    id: uid(),
+    amountToman: refundAmount,
+    reason: "Member relocated (seed).",
+    refundedAtUtc: daysFromNow(-38),
   };
 }
 
-function loadDb(): DemoDb {
+export function loadDb(): DemoDb {
   if (typeof window === "undefined") throw new Error("demo store requires a browser");
   const raw = window.localStorage.getItem(DB_KEY);
   if (!raw) {
@@ -188,7 +520,7 @@ function loadDb(): DemoDb {
   }
 }
 
-function saveDb(db: DemoDb): void {
+export function saveDb(db: DemoDb): void {
   window.localStorage.setItem(DB_KEY, JSON.stringify(db));
 }
 
@@ -197,7 +529,7 @@ export function resetDemoDb(): void {
   window.localStorage.removeItem("gms.session");
 }
 
-const wait = (ms = 220) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+export const wait = (ms = 220) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 // ---------------------------------------------------------------- errors (ProblemDetails-like)
 

@@ -26,4 +26,14 @@ public interface IMembersModule
 
     /// <summary>True when the member exists and status is Active (entry gate for Attendance).</summary>
     Task<bool> IsActiveAsync(Guid memberId, CancellationToken cancellationToken = default);
+
+    /// <summary>Batch resolve members by id (list enrichment without cross-module JOINs).</summary>
+    Task<IReadOnlyList<MemberPublicDto>> GetBatchAsync(
+        IReadOnlyCollection<Guid> memberIds, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Resolve member ids matching a free-text term (name / code / phone / card).
+    /// Lets other modules filter their own tables by member without JOINing the Members store.
+    /// </summary>
+    Task<IReadOnlyList<Guid>> FindIdsAsync(string searchTerm, int limit = 50, CancellationToken cancellationToken = default);
 }

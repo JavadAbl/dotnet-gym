@@ -27,4 +27,18 @@ public static class ErrorCodes
     public const string PackageNotFound = "catalog.package_not_found";
     public const string PackageNotAvailableInBranch = "catalog.package_not_available_in_branch";
     public const string ProductNotFound = "catalog.product_not_found";
+
+    // sales
+    public const string SalesMemberInactive = "sales.member_inactive";
+    public const string SalesPackageInactive = "sales.package_inactive";
+    public const string SalesMemberPackageNotFound = "sales.member_package_not_found";
+    public const string SalesInvalidState = "sales.invalid_state";
+    public const string SalesPackageExpired = "sales.package_expired";
+    public const string SalesAlreadyRefunded = "sales.already_refunded";
+    public const string SalesRefundAmountInvalid = "sales.refund_amount_invalid";
+
+    // wallet
+    public const string WalletAccountNotFound = "wallet.account_not_found";
+    public const string WalletInsufficientBalance = "wallet.insufficient_balance";
+    public const string WalletInvalidAmount = "wallet.invalid_amount";
 }

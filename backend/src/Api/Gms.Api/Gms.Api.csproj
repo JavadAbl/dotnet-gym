@@ -15,6 +15,8 @@
     <ProjectReference Include="..\..\Modules\Branches\Gms.Modules.Branches\Gms.Modules.Branches.csproj" />
     <ProjectReference Include="..\..\Modules\Catalog\Gms.Modules.Catalog\Gms.Modules.Catalog.csproj" />
     <ProjectReference Include="..\..\Modules\Members\Gms.Modules.Members\Gms.Modules.Members.csproj" />
+    <ProjectReference Include="..\..\Modules\Wallet\Gms.Modules.Wallet\Gms.Modules.Wallet.csproj" />
+    <ProjectReference Include="..\..\Modules\Sales\Gms.Modules.Sales\Gms.Modules.Sales.csproj" />
   </ItemGroup>
 
 </Project>

@@ -91,6 +91,120 @@ export interface MemberWriteModel {
   notes?: string | null;
 }
 
+// ---------------------------------------------------------------- sales (Phase 3)
+
+export type MemberPackageStatus = "Active" | "Frozen" | "Refunded";
+export type PaymentMethod = "Cash" | "Wallet";
+export type ReceiptKind = "PackagePurchase" | "PackageRefund";
+
+export interface MemberPackage {
+  id: string;
+  memberId: string;
+  packageId: string;
+  branchId: string;
+  sessionsTotal: number;
+  sessionsUsed: number;
+  startedAtUtc: string;
+  expiresAtUtc: string;
+  status: MemberPackageStatus;
+  pricePaidToman: number;
+  // enrichment resolved by the API / demo adapter
+  memberCode: string;
+  memberFullName: string;
+  packageNameEn: string;
+  packageNameFa: string;
+  branchNameEn: string;
+  branchNameFa: string;
+  isExpired: boolean;
+}
+
+export interface PackageFreeze {
+  id: string;
+  frozenAtUtc: string;
+  unfrozenAtUtc?: string | null;
+  frozenDays?: number | null;
+}
+
+export interface PackageRefund {
+  id: string;
+  amountToman: number;
+  reason?: string | null;
+  refundedAtUtc: string;
+}
+
+export interface Receipt {
+  id: string;
+  memberId: string;
+  branchId: string;
+  memberPackageId: string;
+  kind: ReceiptKind;
+  paymentMethod: PaymentMethod;
+  amountToman: number;
+  note?: string | null;
+  createdAtUtc: string;
+  memberCode: string;
+  memberFullName: string;
+  branchNameEn: string;
+  branchNameFa: string;
+  packageNameEn: string;
+  packageNameFa: string;
+}
+
+export interface MemberPackageDetail {
+  package: MemberPackage;
+  freezes: PackageFreeze[];
+  refund: PackageRefund | null;
+  receipts: Receipt[];
+}
+
+export interface MemberPackageQuery {
+  search?: string;
+  memberId?: string;
+  branchId?: string;
+  status?: MemberPackageStatus | "";
+  page?: number;
+  pageSize?: number;
+}
+
+export interface PurchaseRequest {
+  memberId: string;
+  packageId: string;
+  branchId: string;
+  paymentMethod: PaymentMethod;
+}
+
+export interface RefundRequest {
+  amountToman?: number;
+  reason?: string;
+}
+
+export interface ReceiptQuery {
+  memberId?: string;
+  branchId?: string;
+  kind?: ReceiptKind | "";
+  page?: number;
+  pageSize?: number;
+}
+
+// ---------------------------------------------------------------- wallet (minimal core for wallet payments)
+
+export interface WalletTransaction {
+  id: string;
+  amountToman: number; // signed: + credit / − debit
+  kind: "TopUp" | "PackagePurchase" | "PackageRefund" | "BuffetPurchase";
+  balanceAfter: number;
+  relatedReceiptId?: string | null;
+  note?: string | null;
+  createdAtUtc: string;
+}
+
+export interface WalletSnapshot {
+  memberId: string;
+  hasAccount: boolean;
+  balanceToman: number;
+  recentTransactions: WalletTransaction[];
+}
+
 export interface Session {
   token: string;
   expiresAt: number; // epoch ms

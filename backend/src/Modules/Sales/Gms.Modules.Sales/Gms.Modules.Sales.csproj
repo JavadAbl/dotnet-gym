@@ -1,8 +1,25 @@
 <Project Sdk="Microsoft.NET.Sdk">
+
   <PropertyGroup>
     <RootNamespace>Gms.Modules.Sales</RootNamespace>
   </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="8.0.11" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\..\..\BuildingBlocks\Gms.BuildingBlocks\Gms.BuildingBlocks.csproj" />
+    <ProjectReference Include="..\Gms.Modules.Sales.Public\Gms.Modules.Sales.Public.csproj" />
+    <!-- Cross-module via public contracts only: member/branch/package data + wallet charging. -->
+    <ProjectReference Include="..\Members\Gms.Modules.Members.Public\Gms.Modules.Members.Public.csproj" />
+    <ProjectReference Include="..\Branches\Gms.Modules.Branches.Public\Gms.Modules.Branches.Public.csproj" />
+    <ProjectReference Include="..\Catalog\Gms.Modules.Catalog.Public\Gms.Modules.Catalog.Public.csproj" />
+    <ProjectReference Include="..\Wallet\Gms.Modules.Wallet.Public\Gms.Modules.Wallet.Public.csproj" />
   </ItemGroup>
+
 </Project>

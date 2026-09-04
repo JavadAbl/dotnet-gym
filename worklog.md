@@ -32,3 +32,26 @@ Stage Summary:
 - Backend runs locally: cd backend && dotnet run --project src/Api/Gms.Api (login admin/Admin@123).
 - Frontend preview runs in sandbox on :3000 (demo mode); real API via NEXT_PUBLIC_GMS_API_BASE.
 - Next: Phase 3 — Sales module (package purchase receipts cash/wallet, member packages, freeze/unfreeze, refunds).
+
+---
+Task ID: 3 (Phase 3 — Sales module)
+Agent: main (Super Z)
+Task: Implement Phase 3 (Sales) per gms-implementation-plan.md v1.1 roadmap
+
+Work Log:
+- Implemented Sales module (modular monolith, own SQLite DB): entities MemberPackage (sessions/expiry/status Active|Frozen|Refunded), PackageFreeze, Refund, Receipt (single payment method per receipt — locked decision #5); SalesDbContext with indexes; hand-written mappings (no AutoMapper).
+- Endpoints: POST /api/v1/sales/member-packages (validates member Active, branch, package availability via public contracts; cash XOR wallet; wallet debits first with compensating credit if persist fails), GET paged search (search via IMembersModule.FindIdsAsync — no cross-module JOIN), GET {id} detail (freezes+refund+receipts), freeze/unfreeze (unfreeze shifts expiry by ceil(frozen days) — locked decision #6), refund (pro-rata unused-sessions default, amount override guard, mirrors original payment method; wallet refunds credit the wallet with compensating debit), GET /api/v1/sales/receipts.
+- Pulled Wallet minimal core forward from Phase 5 (required for wallet payments): WalletAccount/WalletTransaction with BalanceAfter ledger invariant, IWalletModule contract (snapshot/ensure/debit/credit/recent), GET /api/v1/wallet/members/{id}, opening-balance seeds resolved via card codes.
+- Extended IMembersModule with GetBatchAsync + FindIdsAsync (batch enrichment + member-scoped search without JOINs); implemented in MembersModuleApi.
+- ISalesModule public contract: GetMemberPackageAsync, GetForMemberAsync, TryConsumeSessionAsync (atomic ExecuteUpdate WHERE Status=Active AND Expires>now AND SessionsUsed<SessionsTotal) — ready for Phase 4.
+- Seeds: 5 demo member packages (Ali wallet VIP, Sara cash Basic, Reza FROZEN VIP, Maryam cash VIP, Ali REFUNDED Basic with 750,000 pro-rata refund receipt); wallet ledger kept consistent (RF-0001: TopUp 5M → purchase −2.5M → balance 2.5M).
+- API host: Sales/Wallet connection strings (own .db files), DI, endpoint maps, WAL bootstrap, seed order branches→identity→catalog→members→wallet→sales.
+- Fixed three latent Phase 0 compile blockers (backend never compiled in sandbox): added backend/Directory.Build.props (net8.0 + ImplicitUsings + Nullable — csprojs had NO TargetFramework), added Microsoft.Extensions.DependencyInjection global using to all module GlobalUsings.cs (IServiceCollection unresolved), added Sales+Wallet ProjectReferences to Gms.Api.csproj.
+- Frontend: types + demo-store v3 (memberPackages/receipts/walletAccounts/walletTransactions, seed mirror of backend), demo-sales adapter mirroring endpoints + errorCodes exactly, api client (7 sales/wallet functions), i18n +~85 fa/en keys, Sales workspace (packages+receipts tabs, filters, session progress, row action menus), SellPackageDialog (member search, branch-scoped package select, wallet balance + insufficient guard), RefundDialog (pro-rata prefill, editable amount, original-method note), member detail sheet real packages + sell shortcut, nav "sales" (ReceiptText), dashboard phase note updated.
+- Verified: eslint clean, tsc clean (GMS sources), next build passes; agent-browser E2E: freeze→frozen, unfreeze→active, wallet purchase (ledger exact 5M→2.5M→0), refund (wallet credit back to 2.5M, PackageRefund row), receipts tab newest-first, member sheet packages, EN/LTR switch, mobile 390px screenshot; zero console errors. Screenshots in download/.
+
+Stage Summary:
+- Phase 3 complete. Weighted progress 27% → 42%.
+- Backend: cd backend && dotnet run --project src/Api/Gms.Api (admin/Admin@123) — sales + wallet endpoints under /api/v1 (Swagger UI at /swagger).
+- Frontend preview on :3000 (demo mode, DB key bumped to gms.demo.db.v3 → fresh seeds); real API via NEXT_PUBLIC_GMS_API_BASE.
+- Next: Phase 4 — Attendance (card-swipe check-in, entry validation, TryConsumeSessionAsync integration, live presence board, history).

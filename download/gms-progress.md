@@ -1,8 +1,10 @@
 # GMS Progress Tracker
 
-Weighted total: **▓▓▓░░░░░░░░░░░░░░░░░░ 27%**
+Weighted total: **▓▓▓▓▓▓▓▓░░░░░░░░░░░░ 42%**
 
-> Updated: 2026-09-05 — workspace was reset between sessions; Phase 0/1 artifacts were rebuilt this session, then Phase 2 implemented and browser-verified end-to-end.
+> Updated: 2026-09-05 — Phase 3 (Sales) delivered end-to-end and browser-verified.
+> Note: while wiring Sales, three latent Phase 0 compile blockers were found and fixed
+> (missing TargetFramework/ImplicitUsings, missing DI global usings, missing Api project refs).
 
 ## Phase 0 — Solution skeleton (8%) ✅ rebuilt
 - [x] `Gms.sln` + BuildingBlocks + Api host + 9 modules with `.Public` contract projects
@@ -24,10 +26,15 @@ Weighted total: **▓▓▓░░░░░░░░░░░░░░░░░�
 - [x] Demo member seeds
 - [x] Frontend: Members workspace (table, search, filters, create/edit dialog, detail sheet, activate/deactivate), Packages & Branches views, fa/en i18n, Jalali dates
 
-## Phase 3 — Sales (15%) ⬜
-- [ ] Member package purchase (cash/wallet receipt, single payment method)
-- [ ] Freeze / unfreeze (expiry shift) · refund/cancel
-- [ ] UI: sell-package flow + member packages tab
+## Phase 3 — Sales (15%) ✅
+- [x] `MemberPackage` (SessionsTotal/Used, expiry, status Active|Frozen|Refunded) + `PackageFreeze` + `Refund` + `Receipt` (single payment method per receipt, locked decision #5)
+- [x] Endpoints: POST /api/v1/sales/member-packages (cash XOR wallet) · GET paged search (search/status/branchId/memberId) · GET {id} detail (freezes+refund+receipts) · POST {id}/freeze · POST {id}/unfreeze (expiry shifted by frozen days) · POST {id}/refund (pro-rata default, mirrors original payment method) · GET /api/v1/sales/receipts
+- [x] Wallet minimal core pulled forward from Phase 5: `WalletAccount`/`WalletTransaction` (ledger invariant BalanceAfter), conditional debit + credit via `IWalletModule` contract, compensation on failed sales persist, wallet snapshot endpoint, opening-balance seeds
+- [x] Cross-module enrichment via public contracts only (Members.GetBatchAsync/FindIdsAsync added; no cross-module JOINs); errorCodes: sales.member_inactive, sales.invalid_state, sales.package_expired, sales.already_refunded, sales.refund_amount_invalid, wallet.insufficient_balance, …
+- [x] `ISalesModule.TryConsumeSessionAsync` (atomic `ExecuteUpdate WHERE SessionsUsed < SessionsTotal`) ready for Phase 4 attendance gate
+- [x] Demo seeds: 5 member packages (1 frozen, 1 refunded) + ledger-consistent wallet purchase
+- [x] Frontend: Sales workspace (member packages + receipts tabs, filters, session progress bars, row actions), sell-package dialog (member search, branch-scoped packages, wallet balance + insufficient guard), refund dialog (pro-rata prefill, editable amount, reason), member detail sheet shows real packages + sell shortcut; fa/en + RTL + Jalali
+- [x] Verified: eslint/tsc/next build clean; browser E2E — freeze/unfreeze, wallet purchase (ledger 5M→2.5M→0→2.5M), refund credit-back, receipts tab, member sheet, EN/LTR, mobile 390px; zero console errors
 
 ## Phase 4 — Attendance (13%) ⬜
 - [ ] Card-swipe check-in with entry validation

@@ -2,8 +2,8 @@
 
 import * as React from "react";
 import { Toaster, toast } from "sonner";
-import { setMemberStatus } from "@/lib/gms/api";
-import type { Branch, Member, MemberStatus } from "@/lib/gms/types";
+import { listBranches, listPackages, setMemberStatus } from "@/lib/gms/api";
+import type { Branch, ExercisePackage, Member, MemberPackage, MemberStatus } from "@/lib/gms/types";
 import { AppShell, type ViewKey } from "@/components/gms/app-shell";
 import { BranchesView } from "@/components/gms/branches-view";
 import { DashboardView } from "@/components/gms/dashboard-view";
@@ -12,8 +12,10 @@ import { MemberDetailSheet } from "@/components/gms/member-detail-sheet";
 import { MemberFormDialog } from "@/components/gms/member-form-dialog";
 import { MembersView } from "@/components/gms/members-view";
 import { PackagesView } from "@/components/gms/packages-view";
+import { RefundDialog } from "@/components/gms/refund-dialog";
+import { SalesView } from "@/components/gms/sales-view";
+import { SellPackageDialog } from "@/components/gms/sell-package-dialog";
 import { GmsProviders, useAuth, useI18n } from "@/components/gms/providers";
-import { listBranches } from "@/lib/gms/api";
 
 export default function Page() {
   return (
@@ -46,12 +48,17 @@ function Workspace() {
   const { t } = useI18n();
   const [view, setView] = React.useState<ViewKey>("dashboard");
   const [branches, setBranches] = React.useState<Branch[]>([]);
+  const [packages, setPackages] = React.useState<ExercisePackage[]>([]);
   const [membersRefresh, setMembersRefresh] = React.useState(0);
+  const [salesRefresh, setSalesRefresh] = React.useState(0);
 
   // dialog state
   const [formOpen, setFormOpen] = React.useState(false);
   const [editingMember, setEditingMember] = React.useState<Member | null>(null);
   const [detailMember, setDetailMember] = React.useState<Member | null>(null);
+  const [sellOpen, setSellOpen] = React.useState(false);
+  const [sellPresetMember, setSellPresetMember] = React.useState<Member | null>(null);
+  const [refundTarget, setRefundTarget] = React.useState<MemberPackage | null>(null);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -61,6 +68,13 @@ function Workspace() {
       })
       .catch(() => {
         if (!cancelled) setBranches([]);
+      });
+    listPackages()
+      .then((items) => {
+        if (!cancelled) setPackages(items);
+      })
+      .catch(() => {
+        if (!cancelled) setPackages([]);
       });
     return () => {
       cancelled = true;
@@ -75,6 +89,11 @@ function Workspace() {
   function openEdit(member: Member) {
     setEditingMember(member);
     setFormOpen(true);
+  }
+
+  function openSell(member?: Member) {
+    setSellPresetMember(member ?? null);
+    setSellOpen(true);
   }
 
   async function handleSetStatus(member: Member, status: MemberStatus) {
@@ -95,6 +114,19 @@ function Workspace() {
     void member;
   }
 
+  function handleSold(sold: MemberPackage) {
+    toast.success(t("sell.created"));
+    setSalesRefresh((n) => n + 1);
+    setMembersRefresh((n) => n + 1);
+    void sold;
+  }
+
+  function handleRefunded() {
+    toast.success(t("sales.refunded"));
+    setSalesRefresh((n) => n + 1);
+    setMembersRefresh((n) => n + 1);
+  }
+
   return (
     <AppShell view={view} onViewChange={setView}>
       {view === "dashboard" ? <DashboardView onOpenMembers={() => setView("members")} /> : null}
@@ -105,6 +137,14 @@ function Workspace() {
           onDetail={setDetailMember}
           onCreate={openCreate}
           refreshSignal={membersRefresh}
+        />
+      ) : null}
+      {view === "sales" ? (
+        <SalesView
+          branches={branches}
+          onSell={() => openSell()}
+          onRefund={setRefundTarget}
+          refreshSignal={salesRefresh}
         />
       ) : null}
       {view === "packages" ? <PackagesView /> : null}
@@ -121,12 +161,33 @@ function Workspace() {
       <MemberDetailSheet
         member={detailMember}
         branches={branches}
+        refreshSignal={membersRefresh}
         onOpenChange={(open) => (open ? undefined : setDetailMember(null))}
         onEdit={(member) => {
           setDetailMember(null);
           openEdit(member);
         }}
         onSetStatus={handleSetStatus}
+        onSell={(member) => {
+          setDetailMember(null);
+          openSell(member);
+        }}
+      />
+
+      <SellPackageDialog
+        open={sellOpen}
+        onOpenChange={setSellOpen}
+        branches={branches}
+        packages={packages}
+        presetMember={sellPresetMember}
+        onSold={handleSold}
+      />
+
+      <RefundDialog
+        open={refundTarget !== null}
+        onOpenChange={(open) => (open ? undefined : setRefundTarget(null))}
+        memberPackage={refundTarget}
+        onRefunded={handleRefunded}
       />
     </AppShell>
   );

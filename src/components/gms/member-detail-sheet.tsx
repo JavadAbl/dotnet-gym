@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Ban, CircleCheck, Package, Pencil } from "lucide-react";
+import { Ban, CircleCheck, Package, PackagePlus, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -11,17 +11,20 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import type { Branch, Member, MemberStatus } from "@/lib/gms/types";
-import { formatDate } from "@/lib/gms/jalali";
-import { StatusBadge } from "./status-badge";
+import { searchMemberPackages } from "@/lib/gms/api";
+import type { Branch, Member, MemberPackage, MemberStatus } from "@/lib/gms/types";
+import { formatDate, formatNumber } from "@/lib/gms/jalali";
+import { PackageStatusBadge, StatusBadge } from "./status-badge";
 import { useI18n } from "./providers";
 
 interface MemberDetailSheetProps {
   member: Member | null;
   branches: Branch[];
+  refreshSignal: number;
   onOpenChange: (open: boolean) => void;
   onEdit: (member: Member) => void;
   onSetStatus: (member: Member, status: MemberStatus) => Promise<void>;
+  onSell: (member: Member) => void;
 }
 
 function Row({ label, value, ltr = false }: { label: string; value: React.ReactNode; ltr?: boolean }) {
@@ -35,9 +38,38 @@ function Row({ label, value, ltr = false }: { label: string; value: React.ReactN
   );
 }
 
-export function MemberDetailSheet({ member, branches, onOpenChange, onEdit, onSetStatus }: MemberDetailSheetProps) {
+export function MemberDetailSheet({
+  member,
+  branches,
+  refreshSignal,
+  onOpenChange,
+  onEdit,
+  onSetStatus,
+  onSell,
+}: MemberDetailSheetProps) {
   const { t, locale } = useI18n();
   const [pendingStatus, setPendingStatus] = React.useState<MemberStatus | null>(null);
+  const [packages, setPackages] = React.useState<MemberPackage[] | null>(null);
+
+  // fetch the member's purchased packages whenever the sheet opens for a member
+  React.useEffect(() => {
+    if (!member) {
+      setPackages(null);
+      return;
+    }
+    let cancelled = false;
+    setPackages(null);
+    searchMemberPackages({ memberId: member.id, page: 1, pageSize: 20 })
+      .then((result) => {
+        if (!cancelled) setPackages(result.items);
+      })
+      .catch(() => {
+        if (!cancelled) setPackages([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [member, refreshSignal]);
 
   const branchName = React.useMemo(() => {
     if (!member) return "—";
@@ -111,14 +143,56 @@ export function MemberDetailSheet({ member, branches, onOpenChange, onEdit, onSe
                 </p>
               </section>
 
-              <section className="rounded-lg border border-dashed p-3">
-                <h4 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  <Package className="h-3.5 w-3.5" />
-                  {t("member.packages.placeholder.title")}
+              <section>
+                <h4 className="flex items-center justify-between pb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  <span className="flex items-center gap-2">
+                    <Package className="h-3.5 w-3.5" />
+                    {t("member.packages.title")}
+                  </span>
+                  {member.status === "Active" ? (
+                    <button
+                      type="button"
+                      onClick={() => onSell(member)}
+                      className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-950"
+                    >
+                      <PackagePlus className="h-3 w-3" />
+                      {t("member.packages.sell")}
+                    </button>
+                  ) : null}
                 </h4>
-                <p className="pt-1 text-xs leading-relaxed text-muted-foreground">
-                  {t("member.packages.placeholder")}
-                </p>
+                {packages === null ? (
+                  <div className="h-16 animate-pulse rounded-lg border bg-muted/40" />
+                ) : packages.length === 0 ? (
+                  <p className="rounded-lg border border-dashed p-3 text-xs leading-relaxed text-muted-foreground">
+                    {t("member.packages.empty")}
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {packages.map((pkg) => (
+                      <div key={pkg.id} className="rounded-lg border bg-card p-2.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="truncate text-sm font-medium">
+                            {locale === "fa" ? pkg.packageNameFa : pkg.packageNameEn}
+                          </p>
+                          <PackageStatusBadge status={pkg.status} />
+                        </div>
+                        <div className="mt-1 flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                          <span className="tabular-nums">
+                            {t("sales.sessions.usage", {
+                              used: formatNumber(pkg.sessionsUsed, locale),
+                              total: formatNumber(pkg.sessionsTotal, locale),
+                            })}
+                          </span>
+                          <span className="tabular-nums">
+                            {pkg.isExpired && pkg.status === "Active"
+                              ? t("sales.expired")
+                              : `${t("sales.column.expiry")}: ${formatDate(pkg.expiresAtUtc, locale)}`}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </section>
             </div>
 

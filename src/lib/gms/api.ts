@@ -3,7 +3,6 @@
 // - Otherwise falls back to the in-browser demo adapter (same contract).
 
 import {
-  GmsApiError,
   demoCreateMember,
   demoGetMember,
   demoListBranches,
@@ -14,16 +13,34 @@ import {
   demoSetMemberStatus,
   demoUpdateMember,
 } from "./demo-store";
+import {
+  demoFreezeMemberPackage,
+  demoGetMemberPackage,
+  demoGetWalletSnapshot,
+  demoListReceipts,
+  demoPurchaseMemberPackage,
+  demoRefundMemberPackage,
+  demoSearchMemberPackages,
+  demoUnfreezeMemberPackage,
+} from "./demo-sales";
+import { GmsApiError } from "./demo-store";
 import type {
   Branch,
   BuffetProduct,
   ExercisePackage,
   LoginResponse,
   Member,
+  MemberPackage,
+  MemberPackageDetail,
+  MemberPackageQuery,
   MemberQuery,
   MemberStatus,
   MemberWriteModel,
   PagedResult,
+  PurchaseRequest,
+  Receipt,
+  RefundRequest,
+  WalletSnapshot,
 } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_GMS_API_BASE;
@@ -143,6 +160,75 @@ export function setMemberStatus(id: string, status: MemberStatus): Promise<Membe
     method: "POST",
     body: JSON.stringify({ status }),
   });
+}
+
+// ---------------------------------------------------------------- sales (Phase 3)
+
+export function searchMemberPackages(query: MemberPackageQuery): Promise<PagedResult<MemberPackage>> {
+  if (isDemoMode) return demoSearchMemberPackages(query);
+  const params = new URLSearchParams();
+  if (query.search) params.set("search", query.search);
+  if (query.memberId) params.set("memberId", query.memberId);
+  if (query.branchId) params.set("branchId", query.branchId);
+  if (query.status) params.set("status", query.status);
+  params.set("page", String(query.page ?? 1));
+  params.set("pageSize", String(query.pageSize ?? 10));
+  return request<PagedResult<MemberPackage>>(`/sales/member-packages?${params.toString()}`);
+}
+
+export function getMemberPackage(id: string): Promise<MemberPackageDetail> {
+  if (isDemoMode) return demoGetMemberPackage(id);
+  return request<MemberPackageDetail>(`/sales/member-packages/${id}`);
+}
+
+export function purchaseMemberPackage(req: PurchaseRequest): Promise<MemberPackage> {
+  if (isDemoMode) return demoPurchaseMemberPackage(req);
+  return request<MemberPackage>("/sales/member-packages", {
+    method: "POST",
+    body: JSON.stringify(req),
+  });
+}
+
+export function freezeMemberPackage(id: string): Promise<MemberPackageDetail> {
+  if (isDemoMode) return demoFreezeMemberPackage(id);
+  return request<MemberPackageDetail>(`/sales/member-packages/${id}/freeze`, { method: "POST" });
+}
+
+export function unfreezeMemberPackage(id: string): Promise<MemberPackageDetail> {
+  if (isDemoMode) return demoUnfreezeMemberPackage(id);
+  return request<MemberPackageDetail>(`/sales/member-packages/${id}/unfreeze`, { method: "POST" });
+}
+
+export function refundMemberPackage(id: string, req: RefundRequest): Promise<MemberPackageDetail> {
+  if (isDemoMode) return demoRefundMemberPackage(id, req);
+  return request<MemberPackageDetail>(`/sales/member-packages/${id}/refund`, {
+    method: "POST",
+    body: JSON.stringify(req),
+  });
+}
+
+export function listReceipts(query: {
+  memberId?: string;
+  branchId?: string;
+  kind?: string;
+  page?: number;
+  pageSize?: number;
+}): Promise<PagedResult<Receipt>> {
+  if (isDemoMode) return demoListReceipts(query);
+  const params = new URLSearchParams();
+  if (query.memberId) params.set("memberId", query.memberId);
+  if (query.branchId) params.set("branchId", query.branchId);
+  if (query.kind) params.set("kind", query.kind);
+  params.set("page", String(query.page ?? 1));
+  params.set("pageSize", String(query.pageSize ?? 10));
+  return request<PagedResult<Receipt>>(`/sales/receipts?${params.toString()}`);
+}
+
+// ---------------------------------------------------------------- wallet (minimal core, Phase 3)
+
+export function getWalletSnapshot(memberId: string): Promise<WalletSnapshot> {
+  if (isDemoMode) return demoGetWalletSnapshot(memberId);
+  return request<WalletSnapshot>(`/wallet/members/${memberId}`);
 }
 
 export { GmsApiError };
