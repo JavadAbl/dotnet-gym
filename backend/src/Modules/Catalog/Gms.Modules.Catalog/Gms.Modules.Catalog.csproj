@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Gms.Modules.Catalog</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="8.0.11" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\BuildingBlocks\Gms.BuildingBlocks\Gms.BuildingBlocks.csproj" />
+    <ProjectReference Include="..\Gms.Modules.Catalog.Public\Gms.Modules.Catalog.Public.csproj" />
+    <!-- Cross-module via public contracts: package creation validates branch ids against Branches. -->
+    <ProjectReference Include="..\Branches\Gms.Modules.Branches.Public\Gms.Modules.Branches.Public.csproj" />
+  </ItemGroup>
+
+</Project>

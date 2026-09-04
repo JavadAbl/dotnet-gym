@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <RootNamespace>Gms.Api</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.11" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\BuildingBlocks\Gms.BuildingBlocks\Gms.BuildingBlocks.csproj" />
+    <ProjectReference Include="..\..\Modules\Identity\Gms.Modules.Identity\Gms.Modules.Identity.csproj" />
+    <ProjectReference Include="..\..\Modules\Branches\Gms.Modules.Branches\Gms.Modules.Branches.csproj" />
+    <ProjectReference Include="..\..\Modules\Catalog\Gms.Modules.Catalog\Gms.Modules.Catalog.csproj" />
+    <ProjectReference Include="..\..\Modules\Members\Gms.Modules.Members\Gms.Modules.Members.csproj" />
+  </ItemGroup>
+
+</Project>

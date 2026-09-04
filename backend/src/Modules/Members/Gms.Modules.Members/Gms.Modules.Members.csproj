@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Gms.Modules.Members</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="8.0.11" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\BuildingBlocks\Gms.BuildingBlocks\Gms.BuildingBlocks.csproj" />
+    <ProjectReference Include="..\Gms.Modules.Members.Public\Gms.Modules.Members.Public.csproj" />
+    <!-- Cross-module via public contracts: member registration validates the home branch id. -->
+    <ProjectReference Include="..\Branches\Gms.Modules.Branches.Public\Gms.Modules.Branches.Public.csproj" />
+  </ItemGroup>
+
+</Project>

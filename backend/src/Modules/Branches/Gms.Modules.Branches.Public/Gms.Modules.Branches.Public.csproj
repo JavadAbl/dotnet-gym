@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Gms.Modules.Branches.Public</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\BuildingBlocks\Gms.BuildingBlocks\Gms.BuildingBlocks.csproj" />
+  </ItemGroup>
+
+</Project>

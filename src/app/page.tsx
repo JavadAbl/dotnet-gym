@@ -1,0 +1,133 @@
+"use client";
+
+import * as React from "react";
+import { Toaster, toast } from "sonner";
+import { setMemberStatus } from "@/lib/gms/api";
+import type { Branch, Member, MemberStatus } from "@/lib/gms/types";
+import { AppShell, type ViewKey } from "@/components/gms/app-shell";
+import { BranchesView } from "@/components/gms/branches-view";
+import { DashboardView } from "@/components/gms/dashboard-view";
+import { LoginView } from "@/components/gms/login-view";
+import { MemberDetailSheet } from "@/components/gms/member-detail-sheet";
+import { MemberFormDialog } from "@/components/gms/member-form-dialog";
+import { MembersView } from "@/components/gms/members-view";
+import { PackagesView } from "@/components/gms/packages-view";
+import { GmsProviders, useAuth, useI18n } from "@/components/gms/providers";
+import { listBranches } from "@/lib/gms/api";
+
+export default function Page() {
+  return (
+    <GmsProviders>
+      <Toaster position="top-center" richColors />
+      <Gate />
+    </GmsProviders>
+  );
+}
+
+/** Login gate: shows the login view until a valid session exists. */
+function Gate() {
+  const { session, initializing } = useAuth();
+
+  if (initializing) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="flex items-center gap-3 text-muted-foreground">
+          <span className="h-8 w-8 animate-spin rounded-full border-2 border-emerald-600 border-t-transparent" />
+        </div>
+      </div>
+    );
+  }
+
+  return session ? <Workspace /> : <LoginView />;
+}
+
+/** Authenticated area: shell + client-side view switching (single-route constraint). */
+function Workspace() {
+  const { t } = useI18n();
+  const [view, setView] = React.useState<ViewKey>("dashboard");
+  const [branches, setBranches] = React.useState<Branch[]>([]);
+  const [membersRefresh, setMembersRefresh] = React.useState(0);
+
+  // dialog state
+  const [formOpen, setFormOpen] = React.useState(false);
+  const [editingMember, setEditingMember] = React.useState<Member | null>(null);
+  const [detailMember, setDetailMember] = React.useState<Member | null>(null);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    listBranches()
+      .then((items) => {
+        if (!cancelled) setBranches(items);
+      })
+      .catch(() => {
+        if (!cancelled) setBranches([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  function openCreate() {
+    setEditingMember(null);
+    setFormOpen(true);
+  }
+
+  function openEdit(member: Member) {
+    setEditingMember(member);
+    setFormOpen(true);
+  }
+
+  async function handleSetStatus(member: Member, status: MemberStatus) {
+    try {
+      const updated = await setMemberStatus(member.id, status);
+      setDetailMember(updated);
+      setMembersRefresh((n) => n + 1);
+      toast.success(t("member.statusChanged"));
+    } catch {
+      toast.error(t("common.error.save"));
+    }
+  }
+
+  function handleSaved(member: Member, mode: "create" | "edit") {
+    setMembersRefresh((n) => n + 1);
+    setDetailMember(null);
+    toast.success(mode === "create" ? t("member.created") : t("member.updated"));
+    void member;
+  }
+
+  return (
+    <AppShell view={view} onViewChange={setView}>
+      {view === "dashboard" ? <DashboardView onOpenMembers={() => setView("members")} /> : null}
+      {view === "members" ? (
+        <MembersView
+          branches={branches}
+          onEdit={openEdit}
+          onDetail={setDetailMember}
+          onCreate={openCreate}
+          refreshSignal={membersRefresh}
+        />
+      ) : null}
+      {view === "packages" ? <PackagesView /> : null}
+      {view === "branches" ? <BranchesView /> : null}
+
+      <MemberFormDialog
+        open={formOpen}
+        onOpenChange={setFormOpen}
+        branches={branches}
+        member={editingMember}
+        onSaved={handleSaved}
+      />
+
+      <MemberDetailSheet
+        member={detailMember}
+        branches={branches}
+        onOpenChange={(open) => (open ? undefined : setDetailMember(null))}
+        onEdit={(member) => {
+          setDetailMember(null);
+          openEdit(member);
+        }}
+        onSetStatus={handleSetStatus}
+      />
+    </AppShell>
+  );
+}

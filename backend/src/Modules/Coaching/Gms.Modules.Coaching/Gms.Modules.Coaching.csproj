@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>Gms.Modules.Coaching</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\BuildingBlocks\Gms.BuildingBlocks\Gms.BuildingBlocks.csproj" />
+  </ItemGroup>
+</Project>
