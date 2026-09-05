@@ -25,11 +25,13 @@ import {
   createTrainingRecord,
   listCoaches,
   searchCoachAssignments,
+  searchMemberPackages,
   searchTrainingPlans,
 } from "@/lib/gms/api";
 import type {
   CoachListResponse,
   CreateRecordRequest,
+  MemberPackage,
   TrainingPlan,
   TrainingRecord,
 } from "@/lib/gms/types";
@@ -71,6 +73,9 @@ export function RecordDialog({ open, onOpenChange, fixedCoachId, fixedMemberId, 
 
   const [plans, setPlans] = React.useState<TrainingPlan[]>([]);
   const [planId, setPlanId] = React.useState("none");
+
+  // v2 — the selected member's private-coaching balance (each logged session consumes one).
+  const [privatePackage, setPrivatePackage] = React.useState<MemberPackage | null>(null);
 
   const [summary, setSummary] = React.useState("");
   const [duration, setDuration] = React.useState("");
@@ -149,6 +154,30 @@ export function RecordDialog({ open, onOpenChange, fixedCoachId, fixedMemberId, 
       cancelled = true;
     };
   }, [coachId, memberId, open]);
+
+  // v2 — private-coaching balance of the selected member (backend consumes one on save).
+  React.useEffect(() => {
+    if (!open || !memberId) {
+      setPrivatePackage(null);
+      return;
+    }
+    let cancelled = false;
+    searchMemberPackages({ memberId, kind: "PrivateCoaching", status: "Active", page: 1, pageSize: 20 })
+      .then((result) => {
+        if (cancelled) return;
+        const nowIso = new Date().toISOString();
+        const usable = result.items
+          .filter((mp) => mp.expiresAtUtc > nowIso && mp.sessionsUsed < mp.sessionsTotal)
+          .sort((a, b) => (a.expiresAtUtc > b.expiresAtUtc ? 1 : -1))[0];
+        setPrivatePackage(usable ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setPrivatePackage(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [memberId, open]);
 
   const memberExists = members.some((m) => m.memberId === memberId);
   const selectedMember = members.find((m) => m.memberId === memberId) ?? null;
@@ -247,6 +276,20 @@ export function RecordDialog({ open, onOpenChange, fixedCoachId, fixedMemberId, 
                 ))}
               </SelectContent>
             </Select>
+            {privatePackage ? (
+              <p className="rounded-lg bg-violet-50 px-3 py-2 text-xs font-medium text-violet-800 dark:bg-violet-950/60 dark:text-violet-300">
+                {t("coaching.assign.privateRemaining", {
+                  remaining: privatePackage.sessionsTotal - privatePackage.sessionsUsed,
+                  total: privatePackage.sessionsTotal,
+                })}
+                {" · "}
+                {t("coaching.record.privateNote")}
+              </p>
+            ) : (
+              <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
+                {t("coaching.assign.privateNone")}
+              </p>
+            )}
           </div>
 
           {/* plan link */}

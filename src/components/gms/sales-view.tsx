@@ -40,10 +40,11 @@ import {
   unfreezeMemberPackage,
 } from "@/lib/gms/api";
 import { toast } from "sonner";
-import type { Branch, MemberPackage, MemberPackageStatus, Receipt } from "@/lib/gms/types";
+import type { Branch, MemberPackage, MemberPackageStatus, PackageKind, Receipt } from "@/lib/gms/types";
 import { formatDate, formatDateTime, formatNumber, formatToman } from "@/lib/gms/jalali";
 import type { Locale } from "@/lib/gms/i18n";
 import { PackageStatusBadge } from "./status-badge";
+import { PackageKindBadge } from "./packages-view";
 import { describeError } from "./sell-package-dialog";
 import { useI18n } from "./providers";
 
@@ -66,6 +67,7 @@ export function SalesView({ branches, onSell, onRefund, refreshSignal }: SalesVi
   const [searchInput, setSearchInput] = React.useState("");
   const [search, setSearch] = React.useState("");
   const [status, setStatus] = React.useState<MemberPackageStatus | "">("");
+  const [kind, setKind] = React.useState<PackageKind | "">("");
   const [branchId, setBranchId] = React.useState<string>("all");
   const [page, setPage] = React.useState(1);
   const [packages, setPackages] = React.useState<MemberPackage[] | null>(null);
@@ -96,6 +98,7 @@ export function SalesView({ branches, onSell, onRefund, refreshSignal }: SalesVi
     searchMemberPackages({
       search: search || undefined,
       status: status || undefined,
+      kind: kind || undefined,
       branchId: branchId === "all" ? undefined : branchId,
       page,
       pageSize: PAGE_SIZE,
@@ -231,23 +234,42 @@ export function SalesView({ branches, onSell, onRefund, refreshSignal }: SalesVi
         </div>
         <div className="flex gap-2">
           {tab === "packages" ? (
-            <Select
-              value={status || "all"}
-              onValueChange={(value) => {
-                setStatus(value === "all" ? "" : (value as MemberPackageStatus));
-                setPage(1);
-              }}
-            >
-              <SelectTrigger className="w-full sm:w-36">
-                <SelectValue placeholder={t("sales.filter.status.all")} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{t("sales.filter.status.all")}</SelectItem>
-                <SelectItem value="Active">{t("pkg.status.Active")}</SelectItem>
-                <SelectItem value="Frozen">{t("pkg.status.Frozen")}</SelectItem>
-                <SelectItem value="Refunded">{t("pkg.status.Refunded")}</SelectItem>
-              </SelectContent>
-            </Select>
+            <>
+              <Select
+                value={status || "all"}
+                onValueChange={(value) => {
+                  setStatus(value === "all" ? "" : (value as MemberPackageStatus));
+                  setPage(1);
+                }}
+              >
+                <SelectTrigger className="w-full sm:w-36">
+                  <SelectValue placeholder={t("sales.filter.status.all")} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t("sales.filter.status.all")}</SelectItem>
+                  <SelectItem value="Active">{t("pkg.status.Active")}</SelectItem>
+                  <SelectItem value="Frozen">{t("pkg.status.Frozen")}</SelectItem>
+                  <SelectItem value="Refunded">{t("pkg.status.Refunded")}</SelectItem>
+                </SelectContent>
+              </Select>
+              {/* v2 — package kind filter (Exercise | PrivateCoaching) */}
+              <Select
+                value={kind || "all"}
+                onValueChange={(value) => {
+                  setKind(value === "all" ? "" : (value as PackageKind));
+                  setPage(1);
+                }}
+              >
+                <SelectTrigger className="w-full sm:w-40">
+                  <SelectValue placeholder={t("sales.filter.kind.all")} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t("sales.filter.kind.all")}</SelectItem>
+                  <SelectItem value="Exercise">{t("packages.kind.exercise")}</SelectItem>
+                  <SelectItem value="PrivateCoaching">{t("packages.kind.private")}</SelectItem>
+                </SelectContent>
+              </Select>
+            </>
           ) : (
             <Select
               value={receiptKind}
@@ -515,7 +537,10 @@ function PackageRow({
         </div>
       </TableCell>
       <TableCell>
-        <p className="max-w-44 truncate font-medium">{packageName}</p>
+        <div className="flex max-w-44 items-center gap-1.5">
+          <p className="truncate font-medium">{packageName}</p>
+          {pkg.packageKind === "PrivateCoaching" ? <PackageKindBadge kind="PrivateCoaching" /> : null}
+        </div>
         <p className="tabular-nums text-xs text-muted-foreground">{formatToman(pkg.pricePaidToman, locale)}</p>
       </TableCell>
       <TableCell className="hidden lg:table-cell">{branchName}</TableCell>

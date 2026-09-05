@@ -6,12 +6,16 @@ public record MemberPackageDto(
     Guid MemberId,
     Guid PackageId,
     Guid BranchId,
+    string PackageKind,
     int SessionsTotal,
     int SessionsUsed,
     DateTime StartedAtUtc,
     DateTime ExpiresAtUtc,
     string Status,
     long PricePaidToman);
+
+/// <summary>Outcome of an atomic private-coaching session consumption (v2): which package paid, and its live counters.</summary>
+public record CoachingSessionConsumedDto(Guid MemberPackageId, int SessionsTotal, int SessionsUsed);
 
 /// <summary>Result of a top-up receipt creation (Wallet module links its ledger row to the receipt id).</summary>
 public record ReceiptCreatedDto(Guid ReceiptId, long AmountToman, DateTime CreatedAtUtc);
@@ -31,9 +35,27 @@ public interface ISalesModule
     /// Atomic session consumption for the attendance gate (Phase 4):
     /// <c>UPDATE ... SET SessionsUsed = SessionsUsed + 1 WHERE Id = @id AND Status = Active
     /// AND ExpiresAtUtc &gt; now AND SessionsUsed &lt; SessionsTotal</c>.
-    /// True (and only then) exactly one row was consumed.
+    /// True (and only then) exactly one row was consumed. Callers must only pass EXERCISE-kind
+    /// packages — gym entry never burns private-coaching sessions (v2).
     /// </summary>
     Task<bool> TryConsumeSessionAsync(Guid memberPackageId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// v2 — atomic private-coaching session consumption for the Coaching gate: picks the member's
+    /// usable PrivateCoaching package (Active, not expired, sessions remaining — soonest expiry
+    /// first) and consumes one session with a single conditional UPDATE. Pre-validation is UX
+    /// only; the UPDATE is the source of truth. Null ⇒ nothing was consumed (no usable package,
+    /// or a concurrent consumer won the last session).
+    /// </summary>
+    Task<CoachingSessionConsumedDto?> TryConsumeCoachingSessionAsync(Guid memberId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// v2 — the best (soonest-expiring) usable PrivateCoaching package per requested member:
+    /// status Active, not expired, sessions remaining. Members without one are simply absent
+    /// from the result. Used by Coaching to gate assignments and enrich lists with live counters.
+    /// </summary>
+    Task<IReadOnlyList<MemberPackageDto>> GetActivePrivatePackagesAsync(
+        IReadOnlyList<Guid> memberIds, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Phase 5: records a wallet cash-in as a <c>TopUp</c> receipt — the universal money document

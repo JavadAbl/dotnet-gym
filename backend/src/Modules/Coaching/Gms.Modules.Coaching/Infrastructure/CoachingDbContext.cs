@@ -46,10 +46,12 @@ public class CoachingDbContext(DbContextOptions<CoachingDbContext> options) : Db
             builder.Property(e => e.Summary).HasMaxLength(1000).IsRequired();
             builder.Property(e => e.Intensity).HasMaxLength(20);
             builder.Property(e => e.Note).HasMaxLength(1000);
+            builder.Property(e => e.MemberPackageId).HasColumnName("MemberPackageId");
             builder.HasIndex(e => e.CoachId);
             builder.HasIndex(e => e.MemberId);
             builder.HasIndex(e => e.BranchId);
             builder.HasIndex(e => e.PerformedAtUtc);
+            builder.HasIndex(e => e.MemberPackageId);
         });
     }
 }

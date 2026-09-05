@@ -32,6 +32,10 @@ namespace Gms.Modules.Sales.Infrastructure.Migrations
                     b.Property<Guid>("BranchId")
                         .HasColumnType("TEXT");
 
+                    b.Property<int>("PackageKind")
+                        .HasConversion<int>()
+                        .HasColumnType("INTEGER");
+
                     b.Property<int>("SessionsTotal")
                         .HasColumnType("INTEGER");
 
@@ -64,6 +68,8 @@ namespace Gms.Modules.Sales.Infrastructure.Migrations
                     b.HasIndex("BranchId");
 
                     b.HasIndex("ExpiresAtUtc");
+
+                    b.HasIndex("PackageKind");
 
                     b.HasIndex("Status");
 

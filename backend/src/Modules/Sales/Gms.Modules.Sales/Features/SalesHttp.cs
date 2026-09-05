@@ -12,6 +12,7 @@ public sealed record MemberPackageView(
     Guid MemberId,
     Guid PackageId,
     Guid BranchId,
+    string PackageKind,
     int SessionsTotal,
     int SessionsUsed,
     DateTime StartedAtUtc,
@@ -64,6 +65,14 @@ internal static class SalesViews
         _ => null,
     };
 
+    /// <summary>v2 — catalog kind string → the Sales-side family snapshot (unknown values fall back to Exercise).</summary>
+    public static Domain.MemberPackageKind? ParseKind(string? value) => value?.Trim() switch
+    {
+        "Exercise" => Domain.MemberPackageKind.Exercise,
+        "PrivateCoaching" => Domain.MemberPackageKind.PrivateCoaching,
+        _ => null,
+    };
+
     public static MemberPackageStatus? ParseStatus(string? value) => value?.Trim().ToLowerInvariant() switch
     {
         "active" => MemberPackageStatus.Active,
@@ -96,6 +105,7 @@ internal static class SalesViews
             mp.MemberId,
             mp.PackageId,
             mp.BranchId,
+            mp.PackageKind.ToString(),
             mp.SessionsTotal,
             mp.SessionsUsed,
             mp.StartedAtUtc,

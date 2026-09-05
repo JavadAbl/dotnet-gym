@@ -21,7 +21,7 @@ import type {
   WalletTransaction,
 } from "./types";
 
-const DB_KEY = "gms.demo.db.v8";
+const DB_KEY = "gms.demo.db.v9";
 const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
 
 interface DemoUser {
@@ -195,6 +195,7 @@ function seedDb(): DemoDb {
       id: uid(),
       nameEn: "VIP — 12 Sessions / 1 Month",
       nameFa: "ویژه — ۱۲ جلسه / یک ماه",
+      kind: "Exercise",
       sessionsCount: 12,
       durationDays: 30,
       priceToman: 2_500_000,
@@ -205,11 +206,36 @@ function seedDb(): DemoDb {
       id: uid(),
       nameEn: "Basic — 8 Sessions / 2 Weeks",
       nameFa: "پایه — ۸ جلسه / دو هفته",
+      kind: "Exercise",
       sessionsCount: 8,
       durationDays: 14,
       priceToman: 1_200_000,
       isActive: true,
       branchIds: [southId],
+    },
+    // v2 — private coach packages: buying one entitles the member to personal training;
+    // coaches can only serve members with an active private package (Coaching gate).
+    {
+      id: uid(),
+      nameEn: "Private Coaching — 30 Sessions / 2 Months",
+      nameFa: "مربی خصوصی — ۳۰ جلسه / دو ماه",
+      kind: "PrivateCoaching",
+      sessionsCount: 30,
+      durationDays: 60,
+      priceToman: 15_000_000,
+      isActive: true,
+      branchIds: [northId, southId],
+    },
+    {
+      id: uid(),
+      nameEn: "Private Coaching — 20 Sessions / 1 Month",
+      nameFa: "مربی خصوصی — ۲۰ جلسه / یک ماه",
+      kind: "PrivateCoaching",
+      sessionsCount: 20,
+      durationDays: 30,
+      priceToman: 11_000_000,
+      isActive: true,
+      branchIds: [northId, southId],
     },
   ];
 
@@ -367,6 +393,7 @@ function seedDemoSales(db: DemoDb): void {
     memberId: ali.id,
     packageId: vip.id,
     branchId: north,
+    packageKind: "Exercise",
     sessionsTotal: vip.sessionsCount,
     sessionsUsed: 3,
     startedAtUtc: daysFromNow(-6),
@@ -409,6 +436,7 @@ function seedDemoSales(db: DemoDb): void {
     memberId: sara.id,
     packageId: basic.id,
     branchId: south,
+    packageKind: "Exercise",
     sessionsTotal: basic.sessionsCount,
     sessionsUsed: 2,
     startedAtUtc: daysFromNow(-4),
@@ -450,6 +478,7 @@ function seedDemoSales(db: DemoDb): void {
     memberId: reza.id,
     packageId: vip.id,
     branchId: south,
+    packageKind: "Exercise",
     sessionsTotal: vip.sessionsCount,
     sessionsUsed: 5,
     startedAtUtc: daysFromNow(-20),
@@ -491,6 +520,7 @@ function seedDemoSales(db: DemoDb): void {
     memberId: maryam.id,
     packageId: vip.id,
     branchId: north,
+    packageKind: "Exercise",
     sessionsTotal: vip.sessionsCount,
     sessionsUsed: 3,
     startedAtUtc: daysFromNow(-10),
@@ -533,6 +563,7 @@ function seedDemoSales(db: DemoDb): void {
     memberId: ali.id,
     packageId: basic.id,
     branchId: south,
+    packageKind: "Exercise",
     sessionsTotal: basic.sessionsCount,
     sessionsUsed: 3,
     startedAtUtc: daysFromNow(-40),
@@ -598,6 +629,98 @@ function seedDemoSales(db: DemoDb): void {
     reason: "Member relocated (seed).",
     refundedAtUtc: daysFromNow(-38),
   };
+
+  // ---------------------------------------------------------------- v2 — private coach packages (CASH — wallet ledger stays exactly as before)
+  // SessionsUsed mirrors the seeded training-record history (Ali 3 sessions, Maryam 2)
+  // so the Coaching workspace's remaining-session counters reconcile from the first boot.
+  const private30 = db.packages.find((p) => p.kind === "PrivateCoaching" && p.sessionsCount === 30);
+  const private20 = db.packages.find((p) => p.kind === "PrivateCoaching" && p.sessionsCount === 20);
+
+  if (private30) {
+    const aliPrivateId = uid();
+    db.memberPackages.push({
+      id: aliPrivateId,
+      memberId: ali.id,
+      packageId: private30.id,
+      branchId: north,
+      packageKind: "PrivateCoaching",
+      sessionsTotal: private30.sessionsCount,
+      sessionsUsed: 3,
+      startedAtUtc: daysFromNow(-25),
+      expiresAtUtc: daysFromNow(-25 + private30.durationDays),
+      status: "Active",
+      pricePaidToman: private30.priceToman,
+      memberCode: ali.code,
+      memberFullName: ali.fullName,
+      packageNameEn: private30.nameEn,
+      packageNameFa: private30.nameFa,
+      branchNameEn: "North Branch",
+      branchNameFa: "شعبه شمال",
+      isExpired: false,
+      freezes: [],
+      refund: null,
+    });
+    db.receipts.push({
+      id: uid(),
+      memberId: ali.id,
+      branchId: north,
+      memberPackageId: aliPrivateId,
+      kind: "PackagePurchase",
+      paymentMethod: "Cash",
+      amountToman: private30.priceToman,
+      note: "Private coaching package (seed).",
+      createdAtUtc: daysFromNow(-25),
+      memberCode: ali.code,
+      memberFullName: ali.fullName,
+      branchNameEn: "North Branch",
+      branchNameFa: "شعبه شمال",
+      packageNameEn: private30.nameEn,
+      packageNameFa: private30.nameFa,
+    });
+  }
+
+  if (private20) {
+    const maryamPrivateId = uid();
+    db.memberPackages.push({
+      id: maryamPrivateId,
+      memberId: maryam.id,
+      packageId: private20.id,
+      branchId: north,
+      packageKind: "PrivateCoaching",
+      sessionsTotal: private20.sessionsCount,
+      sessionsUsed: 2,
+      startedAtUtc: daysFromNow(-9),
+      expiresAtUtc: daysFromNow(-9 + private20.durationDays),
+      status: "Active",
+      pricePaidToman: private20.priceToman,
+      memberCode: maryam.code,
+      memberFullName: maryam.fullName,
+      packageNameEn: private20.nameEn,
+      packageNameFa: private20.nameFa,
+      branchNameEn: "North Branch",
+      branchNameFa: "شعبه شمال",
+      isExpired: false,
+      freezes: [],
+      refund: null,
+    });
+    db.receipts.push({
+      id: uid(),
+      memberId: maryam.id,
+      branchId: north,
+      memberPackageId: maryamPrivateId,
+      kind: "PackagePurchase",
+      paymentMethod: "Cash",
+      amountToman: private20.priceToman,
+      note: "Private coaching package (seed).",
+      createdAtUtc: daysFromNow(-9),
+      memberCode: maryam.code,
+      memberFullName: maryam.fullName,
+      branchNameEn: "North Branch",
+      branchNameFa: "شعبه شمال",
+      packageNameEn: private20.nameEn,
+      packageNameFa: private20.nameFa,
+    });
+  }
 }
 
 // ---------------------------------------------------------------- Phase 6 demo seeds (mirror of CoachingSeeder)

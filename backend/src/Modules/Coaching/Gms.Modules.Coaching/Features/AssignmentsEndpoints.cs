@@ -14,6 +14,8 @@ namespace Gms.Modules.Coaching.Features;
 /// (Staff, coach role scoped to their own rows), POST {id}/release (Management or the
 /// owning coach). One ACTIVE assignment per coach-member pair is enforced by a partial
 /// unique index at the DB level; the released rows stay as history.
+/// v2 — creating an assignment REQUIRES the member to hold an ACTIVE private coach
+/// package with sessions remaining (coaches only serve private-package holders).
 /// </summary>
 public static class AssignmentsEndpoints
 {
@@ -38,6 +40,7 @@ public static class AssignmentsEndpoints
                     IMembersModule members,
                     IBranchesModule branches,
                     IAttendanceModule attendance,
+                    ISalesModule sales,
                     CancellationToken cancellationToken) =>
                 {
                     // ---- coach: must be an active coach account (contract call, no Identity EF)
@@ -71,6 +74,17 @@ public static class AssignmentsEndpoints
                     if (!await branches.ExistsAsync(branchId.Value, cancellationToken))
                     {
                         throw new GmsException(ErrorCodes.BranchNotFound, "Branch not found.", 404);
+                    }
+
+                    // ---- v2 gate: coaches only serve members with an ACTIVE private coach package
+                    //      (sessions remaining). Resolved through the Sales public contract — no JOINs.
+                    var privatePackages = await sales.GetActivePrivatePackagesAsync([member.Id], cancellationToken);
+                    if (privatePackages.Count == 0)
+                    {
+                        throw new GmsException(
+                            ErrorCodes.CoachingPrivatePackageRequired,
+                            "The member needs an active private-coach package with sessions remaining before a coach can be assigned.",
+                            409);
                     }
 
                     // ---- duplicate gate: one active assignment per coach-member pair
@@ -114,11 +128,13 @@ public static class AssignmentsEndpoints
                         [assignment.MemberId], [assignment.CoachId], [], cancellationToken);
                     var isPresent = await attendance.IsMemberPresentAsync(assignment.MemberId, cancellationToken);
 
-                    return Results.Created($"/api/v1/coaching/assignments/{assignment.Id}", assignment.ToView(lookup, isPresent));
+                    return Results.Created(
+                        $"/api/v1/coaching/assignments/{assignment.Id}",
+                        assignment.ToView(lookup, isPresent, privatePackages.ToDictionary(p => p.MemberId)));
                 })
                 .RequireAuthorization(Policies.Management)
                 .WithTags("Coaching")
-                .WithSummary("Assign a coach to a member (one active pair; released rows become history).");
+                .WithSummary("Assign a coach to a private-package holder (one active pair; released rows become history).");
         }
     }
 
@@ -133,6 +149,7 @@ public static class AssignmentsEndpoints
                     IMembersModule members,
                     IBranchesModule branches,
                     IAttendanceModule attendance,
+                    ISalesModule sales,
                     Guid? coachId,
                     Guid? memberId,
                     Guid? branchId,
@@ -202,8 +219,13 @@ public static class AssignmentsEndpoints
                     var presence = await CoachingViews.LoadPresenceAsync(
                         attendance, items.Where(a => a.ReleasedAtUtc == null).Select(a => a.MemberId), cancellationToken);
 
+                    // v2 — live private-coaching counters for the page's members (Sales public contract).
+                    var privatePackages = (await sales.GetActivePrivatePackagesAsync(
+                        items.Select(a => a.MemberId).ToList(), cancellationToken))
+                        .ToDictionary(p => p.MemberId);
+
                     var views = items
-                        .Select(a => a.ToView(lookup, presence.TryGetValue(a.MemberId, out var present) && present))
+                        .Select(a => a.ToView(lookup, presence.TryGetValue(a.MemberId, out var present) && present, privatePackages))
                         .ToList();
 
                     return Results.Ok(new PagedResult<CoachAssignmentView>(views, currentPage, currentPageSize, totalCount));

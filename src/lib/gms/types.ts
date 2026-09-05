@@ -25,10 +25,14 @@ export interface Branch {
   isActive: boolean;
 }
 
+/** Package family (v2): Exercise gates gym entry; PrivateCoaching gates coach service. */
+export type PackageKind = "Exercise" | "PrivateCoaching";
+
 export interface ExercisePackage {
   id: string;
   nameEn: string;
   nameFa: string;
+  kind: PackageKind;
   sessionsCount: number;
   durationDays: number;
   priceToman: number;
@@ -102,6 +106,8 @@ export interface MemberPackage {
   memberId: string;
   packageId: string;
   branchId: string;
+  /** Package family snapshot copied at purchase time (v2). */
+  packageKind: PackageKind;
   sessionsTotal: number;
   sessionsUsed: number;
   startedAtUtc: string;
@@ -163,6 +169,7 @@ export interface MemberPackageQuery {
   memberId?: string;
   branchId?: string;
   status?: MemberPackageStatus | "";
+  kind?: PackageKind | "";
   page?: number;
   pageSize?: number;
 }
@@ -187,9 +194,11 @@ export interface ReceiptQuery {
   pageSize?: number;
 }
 
-/** Sales workspace KPIs (Phase 8) — branch-scoped for reception, whole chain for admin. */
+/** Sales workspace KPIs (Phase 8, extended v2) — branch-scoped for reception, whole chain for admin. */
 export interface SalesSummary {
   activePackages: number;
+  /** v2 — the PrivateCoaching slice of activePackages (packages actually being served by coaches). */
+  activePrivatePackages: number;
   packageRevenueTodayToman: number;
   packageRevenueCashTodayToman: number;
   packageRevenueWalletTodayToman: number;
@@ -332,6 +341,9 @@ export interface CoachAssignment {
   branchNameFa: string;
   /** Live from the Attendance module — the member is currently checked in. */
   memberIsPresent: boolean;
+  /** v2 — live private-coaching entitlement (null ⇒ no usable private package). */
+  privateSessionsRemaining?: number | null;
+  privateSessionsTotal?: number | null;
 }
 
 export interface TrainingPlan {
@@ -492,6 +504,17 @@ export interface CreateProductRequest {
   nameEn: string;
   nameFa: string;
   prices: ProductPriceInput[];
+  isActive?: boolean;
+}
+
+export interface CreatePackageRequest {
+  nameEn: string;
+  nameFa: string;
+  kind: PackageKind;
+  sessionsCount: number;
+  durationDays: number;
+  priceToman: number;
+  branchIds: string[];
   isActive?: boolean;
 }
 

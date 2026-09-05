@@ -20,6 +20,7 @@ public static class SearchMemberPackagesEndpoint
                 Guid? memberId,
                 Guid? branchId,
                 string? status,
+                string? kind,
                 string? search,
                 int page,
                 int pageSize,
@@ -44,6 +45,13 @@ public static class SearchMemberPackagesEndpoint
                 if (parsedStatus is { } statusFilter)
                 {
                     query = query.Where(mp => mp.Status == statusFilter);
+                }
+
+                // v2 — kind filter (Exercise | PrivateCoaching) for the workspace tabs.
+                var parsedKind = SalesViews.ParseKind(kind);
+                if (parsedKind is { } kindFilter)
+                {
+                    query = query.Where(mp => mp.PackageKind == kindFilter);
                 }
 
                 if (!string.IsNullOrWhiteSpace(search))

@@ -5,6 +5,7 @@ using Gms.Modules.Coaching.Domain;
 using Gms.Modules.Coaching.Infrastructure;
 using Gms.Modules.Identity.Public;
 using Gms.Modules.Members.Public;
+using Gms.Modules.Sales.Public;
 using Microsoft.EntityFrameworkCore;
 
 namespace Gms.Modules.Coaching.Features;
@@ -27,7 +28,10 @@ public sealed record CoachAssignmentView(
     string MemberStatus,
     string BranchNameEn,
     string BranchNameFa,
-    bool MemberIsPresent);
+    bool MemberIsPresent,
+    // v2 — live private-coaching entitlement (null ⇒ the member has no usable private package).
+    int? PrivateSessionsRemaining,
+    int? PrivateSessionsTotal);
 
 public sealed record TrainingPlanView(
     Guid Id,
@@ -128,7 +132,11 @@ internal static class CoachingViews
     public static string CoachName(this CoachingLookup lookup, Guid coachId) =>
         lookup.Coaches.TryGetValue(coachId, out var coach) ? coach.DisplayName : "—";
 
-    public static CoachAssignmentView ToView(this CoachAssignment assignment, CoachingLookup lookup, bool memberIsPresent) =>
+    public static CoachAssignmentView ToView(
+        this CoachAssignment assignment,
+        CoachingLookup lookup,
+        bool memberIsPresent,
+        IReadOnlyDictionary<Guid, MemberPackageDto>? privatePackages = null) =>
         new(
             assignment.Id,
             assignment.CoachId,
@@ -143,7 +151,15 @@ internal static class CoachingViews
             lookup.Members.TryGetValue(assignment.MemberId, out member) ? member.Status : "—",
             lookup.Branches.TryGetValue(assignment.BranchId, out var branch) ? branch.NameEn : "—",
             lookup.Branches.TryGetValue(assignment.BranchId, out branch) ? branch.NameFa : "—",
-            memberIsPresent);
+            memberIsPresent,
+            privatePackages is not null
+                && privatePackages.TryGetValue(assignment.MemberId, out var privatePackage)
+                    ? privatePackage.SessionsTotal - privatePackage.SessionsUsed
+                    : null,
+            privatePackages is not null
+                && privatePackages.TryGetValue(assignment.MemberId, out privatePackage)
+                    ? privatePackage.SessionsTotal
+                    : null);
 
     public static TrainingPlanView ToView(this TrainingPlan plan, CoachingLookup lookup) =>
         new(

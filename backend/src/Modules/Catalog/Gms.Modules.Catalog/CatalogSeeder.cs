@@ -46,6 +46,30 @@ public static class CatalogSeeder
             BranchAccess = [new PackageBranchAccess { BranchId = south }],
         };
 
+        // v2 — private coach packages: buying one entitles the member to personal training;
+        // coaches can only serve members with an active private package (Coaching gate).
+        var private30 = new ExercisePackage
+        {
+            NameEn = "Private Coaching — 30 Sessions / 2 Months",
+            NameFa = "مربی خصوصی — ۳۰ جلسه / دو ماه",
+            Kind = PackageKind.PrivateCoaching,
+            SessionsCount = 30,
+            DurationDays = 60,
+            PriceToman = 15_000_000,
+            BranchAccess = [new PackageBranchAccess { BranchId = north }, new PackageBranchAccess { BranchId = south }],
+        };
+
+        var private20 = new ExercisePackage
+        {
+            NameEn = "Private Coaching — 20 Sessions / 1 Month",
+            NameFa = "مربی خصوصی — ۲۰ جلسه / یک ماه",
+            Kind = PackageKind.PrivateCoaching,
+            SessionsCount = 20,
+            DurationDays = 30,
+            PriceToman = 11_000_000,
+            BranchAccess = [new PackageBranchAccess { BranchId = north }, new PackageBranchAccess { BranchId = south }],
+        };
+
         var water = new BuffetProduct { NameEn = "Water 500ml", NameFa = "آب معدنی ۵۰۰ میلی‌لیتر" };
         var proteinBar = new BuffetProduct { NameEn = "Protein Bar", NameFa = "بار پروتئین" };
         var energyDrink = new BuffetProduct { NameEn = "Energy Drink", NameFa = "نوشیدنی انرژی‌زا" };
@@ -57,7 +81,7 @@ public static class CatalogSeeder
         energyDrink.Prices.Add(new BuffetProductPrice { BranchId = north, PriceToman = 60_000 });
         energyDrink.Prices.Add(new BuffetProductPrice { BranchId = south, PriceToman = 60_000 });
 
-        db.Packages.AddRange(vip, basic);
+        db.Packages.AddRange(vip, basic, private30, private20);
         db.BuffetProducts.AddRange(water, proteinBar, energyDrink);
         await db.SaveChangesAsync();
     }

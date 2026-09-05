@@ -54,6 +54,7 @@ interface KpiState {
   presentNow: number | null;
   visitsToday: number | null;
   activePackages: number | null;
+  activePrivatePackages: number | null;
   walletHeld: number | null;
 }
 
@@ -137,6 +138,7 @@ export function DashboardView({
         presentNow: presenceRes?.count ?? null,
         visitsToday: presenceRes?.visitsToday ?? null,
         activePackages: salesRes ? salesRes.activePackages : isCoach && coachingRes ? coachingRes.activeAssignments : null,
+        activePrivatePackages: salesRes ? salesRes.activePrivatePackages : null,
         walletHeld: walletRes ? walletRes.totalBalanceToman : null,
       });
       setSales(salesRes);
@@ -214,6 +216,7 @@ export function DashboardView({
         ]
       : [
           { label: t("dashboard.activePackages"), icon: Package, value: fmt(kpi?.activePackages ?? null), tone: "bg-rose-600" },
+          { label: t("dashboard.activePrivatePackages"), icon: Users, value: fmt(kpi?.activePrivatePackages ?? null), tone: "bg-violet-600" },
           { label: t("dashboard.revenueToday"), icon: BadgeDollarSign, value: fmtMoney(sales?.packageRevenueTodayToman ?? null), tone: "bg-emerald-600" },
           { label: t("dashboard.walletHeld"), icon: WalletIcon, value: fmtMoney(kpi?.walletHeld ?? null), tone: "bg-violet-600" },
           { label: t("buffet.kpi.revenueToday"), icon: CupSoda, value: fmtMoney(buffet?.revenueTodayToman ?? null), tone: "bg-amber-600" },

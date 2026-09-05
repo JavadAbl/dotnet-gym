@@ -3,6 +3,7 @@ using Gms.Modules.Branches.Public;
 using Gms.Modules.Coaching.Domain;
 using Gms.Modules.Identity.Public;
 using Gms.Modules.Members.Public;
+using Gms.Modules.Sales.Public;
 using Microsoft.EntityFrameworkCore;
 
 namespace Gms.Modules.Coaching;
@@ -12,6 +13,8 @@ namespace Gms.Modules.Coaching;
 /// workspace is alive on first run. Cross-module data (coaches, members, branches) is
 /// resolved exclusively through the public contracts (module rule #1). Run after the
 /// Attendance seeder (needs the demo members, which must exist before assignments).
+/// v2 — seeded records are linked to the members' private-coach packages (created by
+/// the Sales seeder with matching SessionsUsed counters) via the Sales contract.
 /// </summary>
 public static class CoachingSeeder
 {
@@ -30,6 +33,7 @@ public static class CoachingSeeder
         var identityApi = scope.ServiceProvider.GetRequiredService<IIdentityModule>();
         var membersApi = scope.ServiceProvider.GetRequiredService<IMembersModule>();
         var branchesApi = scope.ServiceProvider.GetRequiredService<IBranchesModule>();
+        var salesApi = scope.ServiceProvider.GetRequiredService<ISalesModule>();
 
         var coaches = await identityApi.GetCoachesAsync();
         if (coaches.Count == 0)
@@ -159,12 +163,20 @@ public static class CoachingSeeder
         db.TrainingPlans.AddRange(aliPlanV1, aliPlanV2, maryamPlan);
 
         // ------------------------------------------------- records (sessions the members actually did)
+        // v2 — every record is paid from the member's private-coach package (Sales seeder created
+        // them with SessionsUsed matching this history); resolved via the Sales public contract.
+        var privatePackages = (await salesApi.GetActivePrivatePackagesAsync([ali.Id, maryam.Id]))
+            .ToDictionary(p => p.MemberId);
+        var aliPrivatePackageId = privatePackages.TryGetValue(ali.Id, out var aliPrivate) ? aliPrivate.Id : (Guid?)null;
+        var maryamPrivatePackageId = privatePackages.TryGetValue(maryam.Id, out var maryamPrivate) ? maryamPrivate.Id : (Guid?)null;
+
         db.TrainingRecords.AddRange(
             new TrainingRecord
             {
                 CoachId = coachNorth.Id,
                 MemberId = ali.Id,
                 TrainingPlanId = aliPlanV2.Id,
+                MemberPackageId = aliPrivatePackageId,
                 BranchId = north.Value,
                 PerformedAtUtc = now.AddDays(-2).AddHours(-2),
                 Summary = "Lower — squat 5×5 @ 85kg (all clean), RDL 3×10 @ 70kg.",
@@ -177,6 +189,7 @@ public static class CoachingSeeder
                 CoachId = coachNorth.Id,
                 MemberId = ali.Id,
                 TrainingPlanId = aliPlanV2.Id,
+                MemberPackageId = aliPrivatePackageId,
                 BranchId = north.Value,
                 PerformedAtUtc = now.AddDays(-4).AddHours(-3),
                 Summary = "Upper pull — weighted pull-up 5×5 +10kg, rows 4×10.",
@@ -189,6 +202,7 @@ public static class CoachingSeeder
                 CoachId = coachNorth.Id,
                 MemberId = ali.Id,
                 TrainingPlanId = aliPlanV1.Id,
+                MemberPackageId = aliPrivatePackageId,
                 BranchId = north.Value,
                 PerformedAtUtc = now.AddDays(-9).AddHours(-1),
                 Summary = "Month 1 test day — squat 80kg 5×5, depth fixed.",
@@ -201,6 +215,7 @@ public static class CoachingSeeder
                 CoachId = coachNorth.Id,
                 MemberId = maryam.Id,
                 TrainingPlanId = maryamPlan.Id,
+                MemberPackageId = maryamPrivatePackageId,
                 BranchId = north.Value,
                 PerformedAtUtc = now.AddDays(-1).AddHours(-4),
                 Summary = "Mobility + core — plank 3×30s, pain-free.",
@@ -213,6 +228,7 @@ public static class CoachingSeeder
                 CoachId = coachNorth.Id,
                 MemberId = maryam.Id,
                 TrainingPlanId = maryamPlan.Id,
+                MemberPackageId = maryamPrivatePackageId,
                 BranchId = north.Value,
                 PerformedAtUtc = now.AddDays(-3).AddHours(-5),
                 Summary = "Goblet squat 3×12 @ 8kg, band rows 3×15.",

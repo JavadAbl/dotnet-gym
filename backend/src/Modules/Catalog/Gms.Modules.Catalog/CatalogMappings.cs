@@ -10,6 +10,7 @@ public static class CatalogMappings
             package.Id,
             package.NameEn,
             package.NameFa,
+            package.Kind.ToString(),
             package.SessionsCount,
             package.DurationDays,
             package.PriceToman,

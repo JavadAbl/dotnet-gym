@@ -11,10 +11,10 @@ namespace Gms.Modules.Attendance.Features;
 
 /// <summary>
 /// POST /api/v1/attendance/check-in — the card-swipe entry gate (admin, reception).
-/// Validation pipeline (plan §2 Entry validation): member Active → no open entry → a member
-/// package that is Active, not frozen, not expired, with sessions remaining, and granted to
-/// the current branch. The session is then consumed ATOMICALLY via
-/// <see cref="ISalesModule.TryConsumeSessionAsync"/> (checked rows = 1 ⇒ success).
+/// Validation pipeline (plan §2 Entry validation): member Active → no open entry → an EXERCISE
+/// member package (v2: private-coaching packages never pay for gym entry) that is Active, not
+/// frozen, not expired, with sessions remaining, and granted to the current branch. The session
+/// is then consumed ATOMICALLY via <see cref="ISalesModule.TryConsumeSessionAsync"/> (checked rows = 1 ⇒ success).
 /// </summary>
 public static class CheckInEndpoint
 {
@@ -90,11 +90,16 @@ public static class CheckInEndpoint
                 }
 
                 // ---- package gate: pick the member's usable package for this visit.
-                //      Usable = status Active, not expired, sessions remaining (frozen/refunded excluded).
+                //      Usable = EXERCISE kind (v2 — gym entry never burns private-coaching sessions),
+                //      status Active, not expired, sessions remaining (frozen/refunded excluded).
                 var now = DateTime.UtcNow;
                 var allPackages = await sales.GetForMemberAsync(member.Id, cancellationToken);
 
-                var candidates = allPackages
+                var exercisePackages = allPackages
+                    .Where(mp => string.Equals(mp.PackageKind, "Exercise", StringComparison.Ordinal))
+                    .ToList();
+
+                var candidates = exercisePackages
                     .Where(mp => string.Equals(mp.Status, "Active", StringComparison.Ordinal)
                         && mp.ExpiresAtUtc > now
                         && mp.SessionsUsed < mp.SessionsTotal)
@@ -114,8 +119,8 @@ public static class CheckInEndpoint
                 if (usable.Count == 0)
                 {
                     throw new GmsException(
-                        ClassifyDenial(candidates, allPackages, now),
-                        DenialMessage(candidates, allPackages, now),
+                        ClassifyDenial(candidates, exercisePackages, now),
+                        DenialMessage(candidates, exercisePackages, now),
                         409);
                 }
 
@@ -173,7 +178,7 @@ public static class CheckInEndpoint
     /// <summary>Precise machine-readable denial reason for the receptionist, by precedence.</summary>
     private static string ClassifyDenial(
         IReadOnlyCollection<MemberPackageDto> candidates,
-        IReadOnlyList<MemberPackageDto> allPackages,
+        IReadOnlyList<MemberPackageDto> exercisePackages,
         DateTime nowUtc)
     {
         if (candidates.Count > 0)
@@ -182,17 +187,17 @@ public static class CheckInEndpoint
             return ErrorCodes.AttendanceBranchNotAllowed;
         }
 
-        if (allPackages.Any(mp => string.Equals(mp.Status, "Frozen", StringComparison.Ordinal)))
+        if (exercisePackages.Any(mp => string.Equals(mp.Status, "Frozen", StringComparison.Ordinal)))
         {
             return ErrorCodes.AttendancePackageFrozen;
         }
 
-        if (allPackages.Any(mp => string.Equals(mp.Status, "Active", StringComparison.Ordinal) && mp.ExpiresAtUtc <= nowUtc))
+        if (exercisePackages.Any(mp => string.Equals(mp.Status, "Active", StringComparison.Ordinal) && mp.ExpiresAtUtc <= nowUtc))
         {
             return ErrorCodes.AttendancePackageExpired;
         }
 
-        if (allPackages.Any(mp => string.Equals(mp.Status, "Active", StringComparison.Ordinal)
+        if (exercisePackages.Any(mp => string.Equals(mp.Status, "Active", StringComparison.Ordinal)
             && mp.ExpiresAtUtc > nowUtc
             && mp.SessionsUsed >= mp.SessionsTotal))
         {
@@ -204,9 +209,9 @@ public static class CheckInEndpoint
 
     private static string DenialMessage(
         IReadOnlyCollection<MemberPackageDto> candidates,
-        IReadOnlyList<MemberPackageDto> allPackages,
+        IReadOnlyList<MemberPackageDto> exercisePackages,
         DateTime nowUtc) =>
-        ClassifyDenial(candidates, allPackages, nowUtc) switch
+        ClassifyDenial(candidates, exercisePackages, nowUtc) switch
         {
             ErrorCodes.AttendanceBranchNotAllowed =>
                 "The member's package is not granted to this branch.",

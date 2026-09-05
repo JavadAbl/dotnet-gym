@@ -211,3 +211,25 @@ Work Log:
 Stage Summary:
 - Deliverable: download/gms-v1.zip — self-contained v1 snapshot; a fresh agent can restore continuity from zip README → docs/gms-agents-guide.md → docs/gms-progress.md → worklog.md.
 - Staging kept reproducible via scripts/make-v1-zip.sh; staging dir removed after verification.
+
+---
+Task ID: V2-1 (v2 — Private Coach Packages)
+Agent: main (Super Z)
+Task: Implement v2 feature — coaches only serve private-package holders; members buy private coach packages (30/20 sessions) like exercise packages
+
+Work Log:
+- Step 1–2: re-read plan v1.1 + progress + worklog; confirmed v1 roadmap 100%; announced v2 scope as TODO list; amended the authority doc to v1.2 with §6 (6 confirmed v2 decisions).
+- Catalog: `PackageKind {Exercise, PrivateCoaching}` on `ExercisePackage` + `Kind` in `ExercisePackageDto`; kind filter on GET /catalog/packages; POST accepts Kind; 2 seed packages (30×60d @15M, 20×30d @11M, both branches); migration 20260905090001 + snapshot.
+- Sales: `MemberPackageKind` enum + `PackageKind` snapshot on `MemberPackage` (+index); purchase copies kind from catalog; `MemberPackageDto`/`MemberPackageView` + `packageKind`; search `?kind=`; summary `activePrivatePackages`; new contract methods `TryConsumeCoachingSessionAsync` (FEFO + atomic guarded UPDATE returning CoachingSessionConsumedDto) and `GetActivePrivatePackagesAsync` (best usable per member); seeder: Ali Private-30 3/30 used, Maryam Private-20 2/20 (CASH — wallet ledger untouched); migration 20260905090002 + snapshot.
+- Attendance: check-in candidates + denial classification restricted to Exercise kind; AttendanceSeeder pins Exercise for demo visits.
+- Coaching: assignment gate `coaching.private_package_required` (409) via GetActivePrivatePackagesAsync; record creation consumes one private session via TryConsumeCoachingSessionAsync → `coaching.no_private_sessions` (409); `TrainingRecord.MemberPackageId` (+column, index, migration 20260905090003 + snapshot); assignment views + `privateSessionsRemaining/Total` (ToView overload with Sales lookup); CoachingSeeder links records to private packages via the Sales contract.
+- Bootstrapper: legacy-EnsureCreated baseliner now stamps ONLY the Initial migration so pending v2 migrations apply for real (old code would have stamped them skipped and broken legacy DBs on new columns).
+- Tests: `SalesConsumeCoachingSessionTests` (consume+increment, last-session oversell, frozen/refunded/expired, kind isolation both directions, FEFO batch) + kind-aware seeding in `SalesConsumeSessionTests`.
+- Frontend: types (`PackageKind`, `packageKind`, kind filter/query/summary fields, assignment entitlement fields, `CreatePackageRequest`); demo-store DB v9 (kind seeds + private member packages); demo-sales (kind snapshot/filter/summary); demo-coaching (FEFO gate + consumption + enrichment); demo-attendance (Exercise-only candidates/classification); api.ts kind param; i18n fa/en (~14 new keys); PackagesView kind badges + filter chips (+ exported PackageKindBadge); sell dialog kind chips + private badge in summary; SalesView kind select + row badge; AssignCoachDialog live private-balance chip / amber warning; RecordDialog remaining + consumption note; member sheet private badges; dashboard "Active private packages" KPI.
+- Verified: lint clean, tsc clean (GMS sources), next build clean; browser E2E fa RTL (demo): dashboard 5/2 packages + wallet 8,870,000 exact; packages badges/filters; sell Private-20 to Sara (cash) → toast success; assignment gate pre-sale 409 fa-localized, post-sale PASSED 20/20; record log Ali 27→26; check-in Ali → VIP 8 remaining, private 26/30 untouched; inactive Reza hidden from assign search; zero console errors. Screenshots: download/gms-v2-*.png (4).
+- Docs: plan → v1.2 (§6 amendment); progress tracker → v2 section ✅; this entry.
+
+Stage Summary:
+- v2 delivered end-to-end with strict module discipline (all cross-module access via ISalesModule/ICatalogModule contracts; ids stored, zero cross-module JOINs/FKs; money long Toman; ProblemDetails + errorCode; UTC storage / Jalali display; single payment method per receipt).
+- Key invariants pinned: kind isolation (gym entry ⇎ coaching sessions), atomic FEFO consumption, kind snapshot immutability, baseliner correctness for legacy DBs.
+- Suggested next: rebuild pre-v2 legacy dev DBs is NOT required anymore (baseliner applies v2 columns), but re-verify one legacy boot locally; consider an admin UI tab for creating packages (currently seeds/Swagger only); optional "buy private package" shortcut inside the assign dialog's amber warning.

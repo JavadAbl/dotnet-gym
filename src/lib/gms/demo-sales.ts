@@ -41,6 +41,7 @@ function toView(db: ReturnType<typeof loadDb>, mp: DemoMemberPackageRecord): Mem
   const nowIso = new Date().toISOString();
   return {
     ...mp,
+    packageKind: mp.packageKind ?? "Exercise",
     memberCode: member?.code ?? "—",
     memberFullName: member?.fullName ?? "—",
     packageNameEn: pkg?.nameEn ?? "—",
@@ -136,6 +137,7 @@ export async function demoSearchMemberPackages(query: MemberPackageQuery): Promi
   if (query.memberId) items = items.filter((mp) => mp.memberId === query.memberId);
   if (query.branchId) items = items.filter((mp) => mp.branchId === query.branchId);
   if (query.status) items = items.filter((mp) => mp.status === query.status);
+  if (query.kind) items = items.filter((mp) => (mp.packageKind ?? "Exercise") === query.kind);
 
   const term = query.search?.trim().toLowerCase() ?? "";
   if (term) {
@@ -216,6 +218,7 @@ export async function demoPurchaseMemberPackage(request: PurchaseRequest): Promi
     memberId,
     packageId: pkg.id,
     branchId: request.branchId,
+    packageKind: pkg.kind,
     sessionsTotal: pkg.sessionsCount,
     sessionsUsed: 0,
     startedAtUtc: nowIso,
@@ -462,10 +465,12 @@ export async function demoGetSalesSummary(branchId?: string): Promise<SalesSumma
 
   const activePackages = inBranch(db.memberPackages).filter(
     (mp) => mp.status === "Active" && mp.expiresAtUtc > now.toISOString(),
-  ).length;
+  );
+  const activePrivatePackages = activePackages.filter((mp) => (mp.packageKind ?? "Exercise") === "PrivateCoaching").length;
 
   return {
-    activePackages,
+    activePackages: activePackages.length,
+    activePrivatePackages,
     packageRevenueTodayToman,
     packageRevenueCashTodayToman,
     packageRevenueWalletTodayToman: packageRevenueTodayToman - packageRevenueCashTodayToman,

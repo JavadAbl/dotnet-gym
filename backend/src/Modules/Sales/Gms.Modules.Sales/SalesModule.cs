@@ -62,6 +62,77 @@ internal sealed class SalesModuleApi(SalesDbContext db) : Public.ISalesModule
         return affected == 1;
     }
 
+    /// <summary>v2 — atomic private-coaching consumption: FEFO candidate pick + guarded UPDATE (source of truth).</summary>
+    public async Task<Public.CoachingSessionConsumedDto?> TryConsumeCoachingSessionAsync(
+        Guid memberId, CancellationToken cancellationToken = default)
+    {
+        var now = DateTime.UtcNow;
+
+        // Pre-validation is UX only — pick the member's soonest-expiring usable private package.
+        var candidateId = await db.MemberPackages.AsNoTracking()
+            .Where(mp => mp.MemberId == memberId
+                && mp.PackageKind == Domain.MemberPackageKind.PrivateCoaching
+                && mp.Status == Domain.MemberPackageStatus.Active
+                && mp.ExpiresAtUtc > now
+                && mp.SessionsUsed < mp.SessionsTotal)
+            .OrderBy(mp => mp.ExpiresAtUtc)
+            .Select(mp => (Guid?)mp.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (candidateId is null)
+        {
+            return null; // no usable private package at all
+        }
+
+        // ATOMIC consumption: one conditional UPDATE — a concurrent consumer of the last
+        // session loses the race here (checked rows = 0 ⇒ null), never overselling.
+        var affected = await db.MemberPackages
+            .Where(mp => mp.Id == candidateId
+                && mp.PackageKind == Domain.MemberPackageKind.PrivateCoaching
+                && mp.Status == Domain.MemberPackageStatus.Active
+                && mp.ExpiresAtUtc > DateTime.UtcNow
+                && mp.SessionsUsed < mp.SessionsTotal)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(mp => mp.SessionsUsed, mp => mp.SessionsUsed + 1),
+                cancellationToken);
+
+        if (affected != 1)
+        {
+            return null; // lost the last-session race
+        }
+
+        var consumed = await db.MemberPackages.AsNoTracking()
+            .Where(mp => mp.Id == candidateId)
+            .Select(mp => new Public.CoachingSessionConsumedDto(mp.Id, mp.SessionsTotal, mp.SessionsUsed))
+            .FirstAsync(cancellationToken);
+        return consumed;
+    }
+
+    /// <summary>v2 — best usable private package per member (FEFO), for Coaching gates and list enrichment.</summary>
+    public async Task<IReadOnlyList<Public.MemberPackageDto>> GetActivePrivatePackagesAsync(
+        IReadOnlyList<Guid> memberIds, CancellationToken cancellationToken = default)
+    {
+        if (memberIds.Count == 0)
+        {
+            return [];
+        }
+
+        var now = DateTime.UtcNow;
+        var usable = await db.MemberPackages.AsNoTracking()
+            .Where(mp => memberIds.Contains(mp.MemberId)
+                && mp.PackageKind == Domain.MemberPackageKind.PrivateCoaching
+                && mp.Status == Domain.MemberPackageStatus.Active
+                && mp.ExpiresAtUtc > now
+                && mp.SessionsUsed < mp.SessionsTotal)
+            .OrderBy(mp => mp.ExpiresAtUtc)
+            .ToListAsync(cancellationToken);
+
+        // Soonest-expiring usable private package per member.
+        return usable
+            .GroupBy(mp => mp.MemberId)
+            .Select(group => group.First().ToPublicDto())
+            .ToList();
+    }
+
     public async Task<Public.ReceiptCreatedDto> CreateTopUpReceiptAsync(
         Guid memberId, Guid branchId, long amountToman, string? note = null, CancellationToken cancellationToken = default)
     {

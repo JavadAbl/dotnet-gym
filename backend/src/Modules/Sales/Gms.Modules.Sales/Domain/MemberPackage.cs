@@ -9,6 +9,18 @@ public enum MemberPackageStatus
     Refunded = 2,
 }
 
+/// <summary>
+/// Package family snapshot (v2) — mirrors the Catalog module's PackageKind at purchase time.
+/// Exercise packages are consumed by gym check-in (Attendance); PrivateCoaching packages are
+/// consumed by personal-training sessions (Coaching). Stored as a snapshot so later catalog
+/// edits never rewrite purchase history.
+/// </summary>
+public enum MemberPackageKind
+{
+    Exercise = 0,
+    PrivateCoaching = 1,
+}
+
 public enum PaymentMethod
 {
     Cash = 1,
@@ -28,10 +40,11 @@ public enum ReceiptKind
 }
 
 /// <summary>
-/// A member's purchased exercise-package instance.
+/// A member's purchased package instance (Exercise or PrivateCoaching).
 /// MemberId / PackageId / BranchId are cross-module ids (no FKs by design) — resolved via the
-/// Members / Catalog / Branches public contracts. Sessions are consumed atomically by Attendance
-/// (Phase 4) through <c>ISalesModule.TryConsumeSessionAsync</c>.
+/// Members / Catalog / Branches public contracts. Exercise sessions are consumed atomically by
+/// Attendance (Phase 4) via <c>ISalesModule.TryConsumeSessionAsync</c>; private-coaching sessions
+/// are consumed atomically by Coaching (v2) via <c>ISalesModule.TryConsumeCoachingSessionAsync</c>.
 /// </summary>
 public class MemberPackage : Entity
 {
@@ -41,6 +54,9 @@ public class MemberPackage : Entity
 
     /// <summary>Branch where the package was sold (and, by v1 policy, where it is used).</summary>
     public Guid BranchId { get; set; }
+
+    /// <summary>Package family snapshot (v2) copied from the catalog definition at purchase time.</summary>
+    public MemberPackageKind PackageKind { get; set; } = MemberPackageKind.Exercise;
 
     public int SessionsTotal { get; set; }
 

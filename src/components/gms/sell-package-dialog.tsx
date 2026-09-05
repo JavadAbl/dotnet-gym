@@ -28,11 +28,13 @@ import type {
   ExercisePackage,
   Member,
   MemberPackage,
+  PackageKind,
   PaymentMethod,
   WalletSnapshot,
 } from "@/lib/gms/types";
 import { formatToman } from "@/lib/gms/jalali";
 import { StatusBadge } from "./status-badge";
+import { PackageKindBadge } from "./packages-view";
 import { useI18n } from "./providers";
 
 interface SellPackageDialogProps {
@@ -72,6 +74,7 @@ export function SellPackageDialog({
 
   const [branchId, setBranchId] = React.useState("");
   const [packageId, setPackageId] = React.useState("");
+  const [kindFilter, setKindFilter] = React.useState<PackageKind | "all">("all");
   const [paymentMethod, setPaymentMethod] = React.useState<PaymentMethod>("Cash");
 
   const [submitting, setSubmitting] = React.useState(false);
@@ -87,6 +90,7 @@ export function SellPackageDialog({
       setWallet(null);
       setBranchId("");
       setPackageId("");
+      setKindFilter("all");
       setPaymentMethod("Cash");
       setError(null);
     }
@@ -134,9 +138,13 @@ export function SellPackageDialog({
   const availablePackages = React.useMemo(
     () =>
       packages.filter(
-        (p) => p.isActive && branchId && p.branchIds.includes(branchId),
+        (p) =>
+          p.isActive &&
+          branchId &&
+          p.branchIds.includes(branchId) &&
+          (kindFilter === "all" || p.kind === kindFilter),
       ),
-    [packages, branchId],
+    [packages, branchId, kindFilter],
   );
 
   const selectedPackage = packages.find((p) => p.id === packageId) ?? null;
@@ -279,9 +287,32 @@ export function SellPackageDialog({
             </Select>
           </div>
 
-          {/* package */}
+          {/* package — v2: kind filter chips (Exercise vs Private coaching) */}
           <div className="space-y-1.5">
             <Label>{t("sell.package")}</Label>
+            <div className="flex flex-wrap gap-1.5">
+              {([
+                ["all", t("packages.filter.all")],
+                ["Exercise", t("packages.kind.exercise")],
+                ["PrivateCoaching", t("packages.kind.private")],
+              ] as Array<[PackageKind | "all", string]>).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => {
+                    setKindFilter(value);
+                    setPackageId("");
+                  }}
+                  className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                    kindFilter === value
+                      ? "border-emerald-600 bg-emerald-600 text-white"
+                      : "bg-card text-muted-foreground hover:bg-accent"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
             <Select
               value={packageId || undefined}
               onValueChange={setPackageId}
@@ -302,6 +333,7 @@ export function SellPackageDialog({
                 {availablePackages.map((pkg) => (
                   <SelectItem key={pkg.id} value={pkg.id}>
                     {packageName(pkg)}
+                    {pkg.kind === "PrivateCoaching" ? ` · ${t("packages.kind.private")}` : ""}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -350,10 +382,13 @@ export function SellPackageDialog({
           {selectedPackage ? (
             <div className="space-y-1 rounded-lg border bg-muted/40 p-3">
               <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">{t("sell.summary.sessions", {
-                  sessions: formatNumberSafe(selectedPackage.sessionsCount, locale),
-                  days: formatNumberSafe(selectedPackage.durationDays, locale),
-                })}</span>
+                <span className="flex items-center gap-2 text-muted-foreground">
+                  <PackageKindBadge kind={selectedPackage.kind} />
+                  {t("sell.summary.sessions", {
+                    sessions: formatNumberSafe(selectedPackage.sessionsCount, locale),
+                    days: formatNumberSafe(selectedPackage.durationDays, locale),
+                  })}
+                </span>
               </div>
               <div className="flex items-center justify-between text-sm font-semibold">
                 <span>{t("sell.summary.price")}</span>

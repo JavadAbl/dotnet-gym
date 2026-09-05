@@ -30,6 +30,7 @@ import type {
 } from "@/lib/gms/types";
 import { formatDate, formatDateTime, formatNumber, formatToman } from "@/lib/gms/jalali";
 import { PackageStatusBadge, StatusBadge } from "./status-badge";
+import { PackageKindBadge } from "./packages-view";
 import { useI18n } from "./providers";
 
 interface MemberDetailSheetProps {
@@ -284,8 +285,11 @@ export function MemberDetailSheet({
                     {packages.map((pkg) => (
                       <div key={pkg.id} className="rounded-lg border bg-card p-2.5">
                         <div className="flex items-center justify-between gap-2">
-                          <p className="truncate text-sm font-medium">
-                            {locale === "fa" ? pkg.packageNameFa : pkg.packageNameEn}
+                          <p className="flex min-w-0 items-center gap-1.5 truncate text-sm font-medium">
+                            <span className="truncate">
+                              {locale === "fa" ? pkg.packageNameFa : pkg.packageNameEn}
+                            </span>
+                            {pkg.packageKind === "PrivateCoaching" ? <PackageKindBadge kind="PrivateCoaching" /> : null}
                           </p>
                           <PackageStatusBadge status={pkg.status} />
                         </div>

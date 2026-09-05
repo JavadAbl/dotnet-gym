@@ -8,7 +8,7 @@ using Gms.Modules.Wallet.Public;
 
 namespace Gms.Modules.Sales.Features;
 
-/// <summary>POST /api/v1/sales/member-packages — sell an exercise package to a member (admin, reception).</summary>
+/// <summary>POST /api/v1/sales/member-packages — sell a package to a member (admin, reception).</summary>
 public static class PurchaseMemberPackageEndpoint
 {
     public sealed record PurchaseRequest(Guid MemberId, Guid PackageId, Guid BranchId, string PaymentMethod);
@@ -74,6 +74,7 @@ public static class PurchaseMemberPackageEndpoint
                     MemberId = member.Id,
                     PackageId = package.Id,
                     BranchId = request.BranchId,
+                    PackageKind = SalesViews.ParseKind(package.Kind) ?? Domain.MemberPackageKind.Exercise,
                     SessionsTotal = package.SessionsCount,
                     SessionsUsed = 0,
                     StartedAtUtc = now,
@@ -128,6 +129,6 @@ public static class PurchaseMemberPackageEndpoint
             })
             .RequireAuthorization(Policies.Management)
             .WithTags("Sales")
-            .WithSummary("Sell an exercise package to a member (cash XOR wallet receipt).");
+            .WithSummary("Sell a package to a member (Exercise or PrivateCoaching; cash XOR wallet receipt).");
     }
 }

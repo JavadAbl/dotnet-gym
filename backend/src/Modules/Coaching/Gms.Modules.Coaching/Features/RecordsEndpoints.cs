@@ -4,6 +4,7 @@ using Gms.Modules.Coaching.Domain;
 using Gms.Modules.Coaching.Infrastructure;
 using Gms.Modules.Identity.Public;
 using Gms.Modules.Members.Public;
+using Gms.Modules.Sales.Public;
 using Microsoft.EntityFrameworkCore;
 
 namespace Gms.Modules.Coaching.Features;
@@ -13,6 +14,9 @@ namespace Gms.Modules.Coaching.Features;
 /// GET paged history (Staff, coach role scoped to own rows and branch). Like plans,
 /// logging REQUIRES an active coach-member assignment. Optionally links to the plan
 /// the session followed (same coach-member pair, in-module id reference).
+/// v2 — logging a session ATOMICALLY consumes one session from the member's private
+/// coach package (FEFO, via the Sales contract): coaches only serve private-package
+/// holders, and a session can never be logged once the entitlement is exhausted.
 /// </summary>
 public static class RecordsEndpoints
 {
@@ -49,6 +53,7 @@ public static class RecordsEndpoints
                     IIdentityModule identity,
                     IMembersModule members,
                     IBranchesModule branches,
+                    ISalesModule sales,
                     CancellationToken cancellationToken) =>
                 {
                     CoachingAccess.EnsureCoachOrAdmin(user);
@@ -136,11 +141,26 @@ public static class RecordsEndpoints
                         throw new GmsException(ErrorCodes.BranchNotFound, "Branch not found.", 404);
                     }
 
+                    // ---- v2: consume ONE private-coaching session, atomically (FEFO via the Sales
+                    //      contract). The conditional UPDATE is the source of truth — no assignment
+                    //      or exhausted entitlement ever slips through, and concurrent logs of the
+                    //      last session cannot oversell it. If the record persist below fails, the
+                    //      consumed session stands (same pragmatic outcome as the attendance gate).
+                    var consumed = await sales.TryConsumeCoachingSessionAsync(request.MemberId, cancellationToken);
+                    if (consumed is null)
+                    {
+                        throw new GmsException(
+                            ErrorCodes.CoachingNoPrivateSessions,
+                            "The member has no private-coach package sessions remaining; sell a private coaching package first.",
+                            409);
+                    }
+
                     var record = new TrainingRecord
                     {
                         CoachId = coachId,
                         MemberId = request.MemberId,
                         TrainingPlanId = request.TrainingPlanId is { } linked && linked != Guid.Empty ? linked : null,
+                        MemberPackageId = consumed.MemberPackageId,
                         BranchId = branchId.Value,
                         PerformedAtUtc = performedAt,
                         Summary = summary!,
@@ -161,7 +181,7 @@ public static class RecordsEndpoints
                 })
                 .RequireAuthorization(Policies.Staff)
                 .WithTags("Coaching")
-                .WithSummary("Log a completed training session for an assigned member.");
+                .WithSummary("Log a completed training session for an assigned member (consumes one private-package session).");
         }
     }
 

@@ -22,9 +22,11 @@ public class SalesDbContext(DbContextOptions<SalesDbContext> options) : DbContex
             builder.Property(mp => mp.MemberId).HasColumnName("MemberId");
             builder.Property(mp => mp.PackageId).HasColumnName("PackageId");
             builder.Property(mp => mp.BranchId).HasColumnName("BranchId");
+            builder.Property(mp => mp.PackageKind).HasConversion<int>();
             builder.Property(mp => mp.Status).HasConversion<int>();
             builder.HasIndex(mp => mp.MemberId);
             builder.HasIndex(mp => mp.Status);
+            builder.HasIndex(mp => mp.PackageKind);
             builder.HasIndex(mp => mp.BranchId);
             builder.HasIndex(mp => mp.ExpiresAtUtc);
         });

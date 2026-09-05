@@ -10,6 +10,7 @@ import {
   uid,
   wait,
   type DemoCoachAssignmentRecord,
+  type DemoMemberPackageRecord,
   type DemoTrainingPlanRecord,
   type DemoTrainingRecordRecord,
 } from "./demo-store";
@@ -51,6 +52,7 @@ function assignmentView(db: Db, rec: DemoCoachAssignmentRecord): CoachAssignment
   const member = memberById(db, rec.memberId);
   const branch = branchById(db, rec.branchId);
   const coach = userById(db, rec.coachId);
+  const { remaining, total } = privateCounters(db, rec.memberId);
   return {
     id: rec.id,
     coachId: rec.coachId,
@@ -67,6 +69,9 @@ function assignmentView(db: Db, rec: DemoCoachAssignmentRecord): CoachAssignment
     branchNameFa: branch?.nameFa ?? "—",
     // Live presence — mirrors the backend's IAttendanceModule.IsMemberPresentAsync call.
     memberIsPresent: db.attendance.some((e) => e.memberId === rec.memberId && e.checkOutAtUtc === null),
+    // v2 — live private-coaching counters (mirror of the backend's Sales contract enrichment).
+    privateSessionsRemaining: remaining,
+    privateSessionsTotal: total,
   };
 }
 
@@ -157,6 +162,30 @@ function requireBranch(db: Db, branchId: string) {
   return branch;
 }
 
+// ---------------------------------------------------------------- v2 — private-coaching entitlement helpers
+
+/** The member's best (soonest-expiring) usable private package — Active, not expired, sessions remaining. */
+function bestUsablePrivatePackage(db: Db, memberId: string): DemoMemberPackageRecord | undefined {
+  const nowIso = new Date().toISOString();
+  return db.memberPackages
+    .filter(
+      (mp) =>
+        mp.memberId === memberId &&
+        (mp.packageKind ?? "Exercise") === "PrivateCoaching" &&
+        mp.status === "Active" &&
+        mp.expiresAtUtc > nowIso &&
+        mp.sessionsUsed < mp.sessionsTotal,
+    )
+    .sort((a, b) => (a.expiresAtUtc > b.expiresAtUtc ? 1 : -1))[0];
+}
+
+function privateCounters(db: Db, memberId: string): { remaining: number | null; total: number | null } {
+  const pkg = bestUsablePrivatePackage(db, memberId);
+  return pkg
+    ? { remaining: pkg.sessionsTotal - pkg.sessionsUsed, total: pkg.sessionsTotal }
+    : { remaining: null, total: null };
+}
+
 function memberIdsForSearch(db: Db, term: string): Set<string> {
   const t = term.trim().toLowerCase();
   return new Set(
@@ -220,6 +249,15 @@ export async function demoCreateAssignment(request: CreateAssignmentRequest): Pr
     });
   }
   requireBranch(db, request.branchId);
+
+  // v2 gate — coaches only serve members with an ACTIVE private coach package (sessions remaining).
+  if (!bestUsablePrivatePackage(db, member.id)) {
+    throw new GmsApiError(
+      409,
+      "coaching.private_package_required",
+      "The member needs an active private-coach package with sessions remaining before a coach can be assigned.",
+    );
+  }
 
   if (db.coachAssignments.some((a) => a.coachId === request.coachId && a.memberId === request.memberId && a.releasedAtUtc === null)) {
     throw new GmsApiError(409, "coaching.assignment_exists", "This coach already has an active assignment for this member.");
@@ -410,6 +448,18 @@ export async function demoCreateTrainingRecord(request: CreateRecordRequest): Pr
       throw new GmsApiError(404, "coaching.plan_not_found", "Training plan not found for this coach-member pair.");
     }
   }
+
+  // v2 — logging a session consumes ONE private-coaching session (FEFO), mirroring the
+  // backend's atomic conditional UPDATE. Exhausted/missing entitlement ⇒ precise denial.
+  const privatePackage = bestUsablePrivatePackage(db, member.id);
+  if (!privatePackage) {
+    throw new GmsApiError(
+      409,
+      "coaching.no_private_sessions",
+      "The member has no private-coach package sessions remaining; sell a private coaching package first.",
+    );
+  }
+  privatePackage.sessionsUsed += 1;
 
   const rec: DemoTrainingRecordRecord = {
     id: uid(),

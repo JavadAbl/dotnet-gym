@@ -15,6 +15,7 @@ public static class SalesSummaryEndpoint
 {
     public sealed record SalesSummaryResponse(
         int ActivePackages,
+        int ActivePrivatePackages,
         long PackageRevenueTodayToman,
         long PackageRevenueCashTodayToman,
         long PackageRevenueWalletTodayToman,
@@ -53,6 +54,9 @@ public static class SalesSummaryEndpoint
                 }
 
                 var activePackages = await packages.CountAsync(cancellationToken);
+                var activePrivatePackages = await packages
+                    .Where(mp => mp.PackageKind == MemberPackageKind.PrivateCoaching)
+                    .CountAsync(cancellationToken);
                 var packageRevenueTodayToman = await receiptsToday
                     .Where(r => r.Kind == ReceiptKind.PackagePurchase)
                     .SumAsync(r => r.AmountToman, cancellationToken);
@@ -74,6 +78,7 @@ public static class SalesSummaryEndpoint
 
                 return Results.Ok(new SalesSummaryResponse(
                     activePackages,
+                    activePrivatePackages,
                     packageRevenueTodayToman,
                     packageRevenueCashTodayToman,
                     packageRevenueTodayToman - packageRevenueCashTodayToman,
@@ -84,6 +89,6 @@ public static class SalesSummaryEndpoint
             })
             .RequireAuthorization(Policies.Management)
             .WithTags("Sales")
-            .WithSummary("Sales workspace KPIs (active packages, revenue today/month, payment split, top-ups, refunds).");
+            .WithSummary("Sales workspace KPIs (active packages incl. private, revenue today/month, payment split, top-ups, refunds).");
     }
 }

@@ -20,8 +20,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { createCoachAssignment, listCoaches, searchMembers } from "@/lib/gms/api";
-import type { Branch, Coach, CoachAssignment, CoachListResponse, Member } from "@/lib/gms/types";
+import { createCoachAssignment, listCoaches, searchMemberPackages, searchMembers } from "@/lib/gms/api";
+import type { Branch, Coach, CoachAssignment, CoachListResponse, Member, MemberPackage } from "@/lib/gms/types";
 import { describeError } from "./sell-package-dialog";
 import { useAuth, useI18n } from "./providers";
 
@@ -47,6 +47,9 @@ export function AssignCoachDialog({ open, onOpenChange, branches, presetMember, 
   const [memberResults, setMemberResults] = React.useState<Member[]>([]);
   const [memberSearchOpen, setMemberSearchOpen] = React.useState(false);
   const [selectedMember, setSelectedMember] = React.useState<Member | null>(null);
+  // v2 — live private-coaching entitlement of the selected member (backend gate preview).
+  const [privatePackage, setPrivatePackage] = React.useState<MemberPackage | null>(null);
+  const [privateLoading, setPrivateLoading] = React.useState(false);
 
   const [branchId, setBranchId] = React.useState(pinnedBranchId ?? "");
   const [note, setNote] = React.useState("");
@@ -61,6 +64,7 @@ export function AssignCoachDialog({ open, onOpenChange, branches, presetMember, 
       setMemberQuery("");
       setMemberResults([]);
       setMemberSearchOpen(false);
+      setPrivatePackage(null);
       setBranchId(pinnedBranchId ?? "");
       setNote("");
       setError(null);
@@ -72,6 +76,34 @@ export function AssignCoachDialog({ open, onOpenChange, branches, presetMember, 
     }
      
   }, [open, presetMember]);
+
+  // v2 — resolve the selected member's best usable private-coach package (mirrors the backend gate).
+  React.useEffect(() => {
+    if (!open || !selectedMember) {
+      setPrivatePackage(null);
+      return;
+    }
+    let cancelled = false;
+    setPrivateLoading(true);
+    searchMemberPackages({ memberId: selectedMember.id, kind: "PrivateCoaching", status: "Active", page: 1, pageSize: 20 })
+      .then((result) => {
+        if (cancelled) return;
+        const nowIso = new Date().toISOString();
+        const usable = result.items
+          .filter((mp) => mp.expiresAtUtc > nowIso && mp.sessionsUsed < mp.sessionsTotal)
+          .sort((a, b) => (a.expiresAtUtc > b.expiresAtUtc ? 1 : -1))[0];
+        setPrivatePackage(usable ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setPrivatePackage(null);
+      })
+      .finally(() => {
+        if (!cancelled) setPrivateLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, selectedMember]);
 
   // debounced member search (active members only — backend gate mirrors it)
   React.useEffect(() => {
@@ -222,7 +254,22 @@ export function AssignCoachDialog({ open, onOpenChange, branches, presetMember, 
                 ) : null}
               </div>
             )}
-            <p className="text-xs text-muted-foreground">{t("coaching.assign.member.hint")}</p>
+            {selectedMember ? (
+              privateLoading ? null : privatePackage ? (
+                <p className="rounded-lg bg-violet-50 px-3 py-2 text-xs font-medium text-violet-800 dark:bg-violet-950/60 dark:text-violet-300">
+                  {t("coaching.assign.privateRemaining", {
+                    remaining: privatePackage.sessionsTotal - privatePackage.sessionsUsed,
+                    total: privatePackage.sessionsTotal,
+                  })}
+                </p>
+              ) : (
+                <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
+                  {t("coaching.assign.privateNone")}
+                </p>
+              )
+            ) : (
+              <p className="text-xs text-muted-foreground">{t("coaching.assign.member.hint")}</p>
+            )}
           </div>
 
           {/* branch */}

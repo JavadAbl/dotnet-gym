@@ -230,6 +230,7 @@ export function searchMemberPackages(query: MemberPackageQuery): Promise<PagedRe
   if (query.memberId) params.set("memberId", query.memberId);
   if (query.branchId) params.set("branchId", query.branchId);
   if (query.status) params.set("status", query.status);
+  if (query.kind) params.set("kind", query.kind);
   params.set("page", String(query.page ?? 1));
   params.set("pageSize", String(query.pageSize ?? 10));
   return request<PagedResult<MemberPackage>>(`/sales/member-packages?${params.toString()}`);

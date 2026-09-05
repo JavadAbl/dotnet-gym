@@ -1,11 +1,16 @@
 # GMS Progress Tracker
 
-Weighted total: **▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓ 100%**
+Weighted total (v1 roadmap): **▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓ 100%** · **v2: ✅ delivered**
 
-> Updated: 2026-09-05 — Phase 9 (Hardening) delivered: EF Core migrations replace EnsureCreated
+> Updated: 2026-09-05 — **v2 “Private Coach Packages” delivered and browser-verified.** Coaches can
+> only serve members holding an active private-coach package; members buy private packages
+> (30- or 20-session) exactly like exercise packages; logging a training session atomically consumes
+> one private session (FEFO). Plan doc amended to v1.2 (§6). See the v2 section at the bottom.
+
+> Prior: Phase 9 (Hardening) delivered: EF Core migrations replace EnsureCreated
 > (safe baseline for legacy dev DBs), rate limiting, request audit log, core-invariant test suite,
 > deployment guide. All 10 phases complete — v1 roadmap finished.
-
+>
 > Prior: Phase 8 (Frontend completion) delivered end-to-end and browser-verified.
 
 ## Phase 0 — Solution skeleton (8%) ✅ rebuilt
@@ -94,3 +99,14 @@ Weighted total: **▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓ 100%
 - [x] **Tests**: `backend/tests/Gms.Core.Tests` (xUnit, wired into Gms.sln) — wallet ledger BalanceAfter chain + insufficient-balance/non-positive guards + account-on-demand (real SQLite via `IWalletModule`), atomic session consumption (last-session oversell rejected, frozen/refunded/expired denied), pro-rata refund math incl. floor cases, freeze-shift math (ceiling, clock-skew safe), PBKDF2 hasher roundtrip/malformed-hash rejection; `SalesMath` extracted from endpoints (behavior-preserving) as the tested pure core
 - [x] **Deploy docs**: `download/gms-deployment.md` (config checklist, migration/baseline behavior, WAL backups, publish + systemd + reverse proxy, smoke checklist, audit ops, rollback) + backend README refreshed (migration table, `dotnet ef` workflow via `.config/dotnet-tools.json`, test command)
 - [x] Verified: static review pass over all C# changes (usings, API signatures, EF translation-safe projections); JSON configs valid; no frontend changes needed (Phase 9 scope is backend/ops); frontend build artifacts untouched at Phase 8 state
+
+## v2 — Private Coach Packages ✅ (plan §6 amendment, delivered 2026-09-05)
+- [x] **Catalog — package kinds**: `PackageKind { Exercise, PrivateCoaching }` on the global package definition (same global price + per-branch grants, locked decision #4); `GET /catalog/packages?kind=` filter; `POST /catalog/packages` accepts `Kind` (Admin); seeds: Private Coaching 30 sessions/60d @ 15,000,000 T + 20/30d @ 11,000,000 T (both branches)
+- [x] **Sales — kind snapshot + contract**: `MemberPackage.PackageKind` copied at purchase time (history never rewritten); purchase endpoint sells both kinds through the same cash-XOR-wallet flow; `MemberPackageDto/MemberPackageView` carry `packageKind`; `GET /sales/member-packages?kind=` filter; `GET /sales/summary` adds `activePrivatePackages`
+- [x] **Sales — private consumption contract**: `ISalesModule.TryConsumeCoachingSessionAsync(memberId)` — FEFO pick + ONE conditional `ExecuteUpdate WHERE Status=Active AND not expired AND SessionsUsed<SessionsTotal AND Kind=PrivateCoaching` (pre-validation is UX, the UPDATE is the source of truth); `ISalesModule.GetActivePrivatePackagesAsync(memberIds)` — best usable private package per member for gates/enrichment; `TryConsumeSessionAsync` (attendance) documented + guarded to Exercise only
+- [x] **Attendance — strict kind isolation**: check-in candidates filtered to Exercise kind (private sessions can NEVER pay for gym entry); denial classification runs on exercise packages only; AttendanceSeeder pins Exercise kind for demo visits
+- [x] **Coaching — the entitlement gate**: `POST /coaching/assignments` REQUIRES an active private package with sessions remaining → `coaching.private_package_required` (409); `POST /coaching/records` atomically consumes one private session (FEFO) → `coaching.no_private_sessions` (409) on exhausted/missing entitlement; `TrainingRecord.MemberPackageId` stores the paying package (cross-module id, no FK); assignment views expose live `privateSessionsRemaining/Total`; CoachingSeeder links seeded records to the seeded private packages via the Sales contract
+- [x] **Migrations #2 (v2)**: hand-authored `20260905090001_AddPackageKind` (Catalog), `…90002_AddPackageKind` (Sales), `…90003_AddRecordPackageLink` (Coaching) + model-snapshot updates; boot baseliner fixed — legacy EnsureCreated DBs stamp ONLY the Initial migration so v2 migrations apply for real (previously they would have been silently skipped)
+- [x] **Tests**: new `SalesConsumeCoachingSessionTests` — exact increment, last-session oversell rejected, frozen/refunded/expired denied, strict kind isolation both directions (exercise never pays for coaching and vice versa), FEFO-per-member batch query; existing `SalesConsumeSessionTests` extended with kind-aware seeding
+- [x] **Frontend**: kind badges (violet = private, sky = exercise) on Packages/Sales/member-sheet; kind filter chips in Packages view + Sell dialog + Sales workspace kind select; sell dialog sells both kinds (wallet balance + insufficient guard unchanged); AssignCoach dialog shows the member's live private balance (violet chip) or an amber "no active private package" warning — gate errors mapped to localized fa/en text; Record dialog shows remaining sessions + "logging consumes one session" note; Coaching assignment rows carry live remaining-session chips; member sheet marks private packages; dashboard adds "Active private packages" KPI card; demo adapter kept contract-exact (kind-aware check-in, gated assignment, consuming records) and DB bumped to v9 with private-package seeds (cash — wallet ledger of 8,870,000 T held stays exactly reconciled)
+- [x] Verified: `bun run lint` clean · `tsc --noEmit` clean on all GMS sources · `next build` clean; browser E2E (fa RTL, demo adapter) — dashboard 5 active / 2 private packages + wallet 8,870,000 exact; packages view badges + filters; sold Private-20 to Sara (cash) → assign gate PASSED (20/20 chip); Sara pre-sale assignment rejected with `coaching.private_package_required` (fa-localized); logged a session for Ali → 27→26 remaining; checked Ali in → his VIP consumed (8 remaining), private stayed 26/30; member search correctly hides inactive Reza; EN/LTR untouched; mobile 390px checked; zero console errors. Screenshots: download/gms-v2-dashboard-private-kpi-fa.png, gms-v2-packages-kinds-fa.png, gms-v2-coaching-private-sessions-fa.png, gms-v2-mobile-fa.png

@@ -57,7 +57,9 @@ public static class ErrorCodes
     public const string AttendanceEntryNotFound = "attendance.entry_not_found";
     public const string AttendanceAlreadyCheckedOut = "attendance.already_checked_out";
 
-    // coaching (Phase 6)
+    // coaching (Phase 6, extended v2 — private coach packages)
+    public const string CoachingPrivatePackageRequired = "coaching.private_package_required";
+    public const string CoachingNoPrivateSessions = "coaching.no_private_sessions";
     public const string CoachingCoachNotFound = "coaching.coach_not_found";
     public const string CoachingMemberNotFound = "coaching.member_not_found";
     public const string CoachingMemberInactive = "coaching.member_inactive";

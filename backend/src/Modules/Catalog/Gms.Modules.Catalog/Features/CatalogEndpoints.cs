@@ -16,22 +16,38 @@ public static class CatalogEndpoints
         int DurationDays,
         long PriceToman,
         IReadOnlyList<Guid> BranchIds,
-        bool IsActive = true);
+        bool IsActive = true,
+        string Kind = Public.PackageKindNames.Exercise);
 
     public static void Map(IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/v1/catalog").WithTags("Catalog");
 
-        group.MapGet("/packages", async (CatalogDbContext db, CancellationToken cancellationToken) =>
+        group.MapGet("/packages", async (CatalogDbContext db, string? kind, CancellationToken cancellationToken) =>
             {
-                var packages = await db.Packages.AsNoTracking()
-                    .Include(p => p.BranchAccess)
+                var query = db.Packages.AsNoTracking().Include(p => p.BranchAccess).AsQueryable();
+                if (!string.IsNullOrWhiteSpace(kind))
+                {
+                    var kindFilter = ParseKind(kind);
+                    if (kindFilter is null)
+                    {
+                        throw new GmsException(
+                            ErrorCodes.ValidationFailed,
+                            "Package kind must be Exercise or PrivateCoaching.",
+                            400,
+                            new Dictionary<string, string[]> { ["kind"] = ["Exercise or PrivateCoaching are the only accepted values."] });
+                    }
+
+                    query = query.Where(p => p.Kind == kindFilter);
+                }
+
+                var packages = await query
                     .OrderBy(p => p.CreatedAtUtc)
                     .ToListAsync(cancellationToken);
                 return Results.Ok(packages.Select(p => p.ToDto()).ToList());
             })
             .RequireAuthorization(Policies.Staff)
-            .WithSummary("All exercise packages (global definitions + granted branches).");
+            .WithSummary("All packages (global definitions + granted branches), optionally filtered by kind.");
 
         group.MapGet("/packages/{id:guid}", async (Guid id, CatalogDbContext db, CancellationToken cancellationToken) =>
             {
@@ -39,11 +55,11 @@ public static class CatalogEndpoints
                     .Include(p => p.BranchAccess)
                     .FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
                 return package is null
-                    ? throw new GmsException(ErrorCodes.PackageNotFound, "Exercise package not found.", 404)
+                    ? throw new GmsException(ErrorCodes.PackageNotFound, "Package not found.", 404)
                     : Results.Ok(package.ToDto());
             })
             .RequireAuthorization(Policies.Staff)
-            .WithSummary("Exercise package by id.");
+            .WithSummary("Package by id (either kind).");
 
         group.MapPost("/packages", async (
                 CreatePackageRequest request,
@@ -71,6 +87,12 @@ public static class CatalogEndpoints
                 {
                     NameEn = request.NameEn.Trim(),
                     NameFa = request.NameFa.Trim(),
+                    Kind = ParseKind(request.Kind)
+                        ?? throw new GmsException(
+                            ErrorCodes.ValidationFailed,
+                            "One or more validation errors occurred.",
+                            400,
+                            new Dictionary<string, string[]> { ["kind"] = ["Exercise or PrivateCoaching are the only accepted values."] }),
                     SessionsCount = request.SessionsCount,
                     DurationDays = request.DurationDays,
                     PriceToman = request.PriceToman,
@@ -85,7 +107,7 @@ public static class CatalogEndpoints
                 return Results.Created($"/api/v1/catalog/packages/{package.Id}", package.ToDto());
             })
             .RequireAuthorization(Policies.Admin)
-            .WithSummary("Create an exercise package (admin).");
+            .WithSummary("Create a package (admin) — Exercise or PrivateCoaching.");
 
         group.MapGet("/products", async (Guid? branchId, CatalogDbContext db, CancellationToken cancellationToken) =>
             {
@@ -101,6 +123,13 @@ public static class CatalogEndpoints
             .RequireAuthorization(Policies.Staff)
             .WithSummary("Buffet products with per-branch prices (optional branchId filter).");
     }
+
+    private static Domain.PackageKind? ParseKind(string? value) => value?.Trim() switch
+    {
+        "Exercise" => Domain.PackageKind.Exercise,
+        "PrivateCoaching" => Domain.PackageKind.PrivateCoaching,
+        _ => null,
+    };
 
     private static Dictionary<string, string[]> Validate(CreatePackageRequest request)
     {

@@ -1,6 +1,7 @@
-# GMS — Gym Management System · Implementation Plan v1.1
+# GMS — Gym Management System · Implementation Plan v1.2
 
 > Authoritative architecture & roadmap document. Restored 2026-09-05 (workspace reset) — content re-derived from the confirmed decisions of the planning session.
+> **v1.2 amendment (2026-09-05):** §6 Private Coach Packages — v2 feature decisions appended after the v1 roadmap completed (all 10 phases, 100%).
 
 ## 1. Product Summary
 
@@ -98,3 +99,24 @@ WHERE Id = @id AND SessionsUsed < SessionsTotal` (checked rows = 1 ⇒ success).
 | 7 | Buffet: products & per-branch prices admin, POS order (cash/wallet) | 10% |
 | 8 | Frontend completion: dashboards, reports, role-aware workspaces, Jalali/RTL polish | 10% |
 | 9 | Hardening: EF migrations, rate limiting, audit logs, tests, deployment docs | 5% |
+
+## 6. v2 Amendment — Private Coach Packages (2026-09-05, confirmed)
+
+1. **Coach service requires entitlement:** a coach may only be assigned to (and may only log
+   training sessions for) members holding an **active PrivateCoaching package** — status Active,
+   not expired, sessions remaining. Assignment without it → `coaching.private_package_required`;
+   logging a session with an exhausted/missing entitlement → `coaching.no_private_sessions`.
+2. **Private packages are bought like exercise packages** — same selling flow (member + branch +
+   cash XOR wallet receipt), same global pricing + per-branch grants, freeze/unfreeze and refund
+   semantics included. Each logged training session **atomically consumes one private session**
+   (FEFO: soonest expiry first) through the same conditional-UPDATE pattern as attendance.
+3. **Kind discrimination:** packages gain `Kind ∈ {Exercise, PrivateCoaching}` (Catalog) and every
+   purchase snapshots `PackageKind` (Sales) so later catalog edits never rewrite history.
+4. **Strict kind isolation:** gym check-in (Attendance) consumes **Exercise** packages only —
+   private sessions can never pay for gym entry; coaching sessions consume **PrivateCoaching**
+   packages only. Both directions are enforced in code and pinned by tests.
+5. **Traceability:** each training record stores the consumed member-package id (cross-module id,
+   no FK). Assignment views expose live `privateSessionsRemaining/Total` counters.
+6. Unchanged locked decisions: bilingual fa/en (RTL-first), integer Toman `long`, single payment
+   method per receipt, no PWA, no inventory, no commissions, `.Public`-contract-only cross-module
+   access, one SQLite DB per module with WAL, ProblemDetails + `errorCode` everywhere.

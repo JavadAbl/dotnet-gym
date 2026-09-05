@@ -32,14 +32,16 @@ function entryView(db: ReturnType<typeof loadDb>, entry: DemoAttendanceRecord): 
   };
 }
 
-/** Precise denial classification — same precedence as the backend CheckInEndpoint. */
+/** Precise denial classification — same precedence as the backend CheckInEndpoint. v2: exercise packages only. */
 function classifyDenial(
   db: ReturnType<typeof loadDb>,
   memberId: string,
   hasBranchCandidates: boolean,
   nowIso: string,
 ): { errorCode: string; message: string } {
-  const memberPackages = db.memberPackages.filter((mp) => mp.memberId === memberId);
+  const memberPackages = db.memberPackages.filter(
+    (mp) => mp.memberId === memberId && (mp.packageKind ?? "Exercise") === "Exercise",
+  );
 
   if (hasBranchCandidates) {
     return {
@@ -111,10 +113,16 @@ export async function demoCheckIn(request: CheckInRequest): Promise<AttendanceEn
     throw new GmsApiError(409, "attendance.already_checked_in", "This member is already checked in.");
   }
 
-  // package gate: Active, not expired, sessions remaining, granted to this branch
+  // package gate: EXERCISE kind only (v2 — gym entry never burns private-coaching sessions),
+  // Active, not expired, sessions remaining, granted to this branch
   const nowIso = new Date().toISOString();
   const candidates = db.memberPackages.filter(
-    (mp) => mp.memberId === member.id && mp.status === "Active" && mp.expiresAtUtc > nowIso && mp.sessionsUsed < mp.sessionsTotal,
+    (mp) =>
+      mp.memberId === member.id &&
+      (mp.packageKind ?? "Exercise") === "Exercise" &&
+      mp.status === "Active" &&
+      mp.expiresAtUtc > nowIso &&
+      mp.sessionsUsed < mp.sessionsTotal,
   );
   const usable = candidates.filter((mp) => {
     const pkg = db.packages.find((p) => p.id === mp.packageId);

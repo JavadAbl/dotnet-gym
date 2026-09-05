@@ -49,9 +49,11 @@ public static class AttendanceSeeder
         }
 
         // Active member packages (resolved through the Sales public contract — no direct DB access).
+        // v2 — gym-entry demo visits are paid by EXERCISE packages only (private packages never burn).
         var nowSeed = DateTime.UtcNow;
         var isActiveAndUsable = (Public.MemberPackageDto mp, Guid branchId) =>
-            string.Equals(mp.Status, "Active", StringComparison.Ordinal)
+            string.Equals(mp.PackageKind, "Exercise", StringComparison.Ordinal)
+            && string.Equals(mp.Status, "Active", StringComparison.Ordinal)
             && mp.ExpiresAtUtc > nowSeed
             && mp.SessionsUsed < mp.SessionsTotal
             && mp.BranchId == branchId;
@@ -102,7 +104,8 @@ public static class AttendanceSeeder
         };
 
         // ---------------------------------------------------------------- 4. Ali — visited 3 days ago @ South on Basic (closed)
-        var aliBasicSouth = aliPackages.FirstOrDefault(mp => mp.BranchId == south);
+        var aliBasicSouth = aliPackages.FirstOrDefault(mp =>
+            string.Equals(mp.PackageKind, "Exercise", StringComparison.Ordinal) && mp.BranchId == south);
         var aliThreeDaysAgo = aliBasicSouth is null
             ? null
             : new AttendanceEntry

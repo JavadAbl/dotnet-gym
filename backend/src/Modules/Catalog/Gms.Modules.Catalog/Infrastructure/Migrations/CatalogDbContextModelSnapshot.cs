@@ -62,6 +62,9 @@ namespace Gms.Modules.Catalog.Infrastructure.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("TEXT");
 
+                    b.Property<int>("Kind")
+                        .HasColumnType("INTEGER");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("INTEGER");
 
@@ -82,6 +85,8 @@ namespace Gms.Modules.Catalog.Infrastructure.Migrations
                         .HasColumnType("INTEGER");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("Kind");
 
                     b.ToTable("Packages", (string)null);
                 });

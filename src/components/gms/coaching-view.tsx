@@ -499,6 +499,16 @@ export function CoachingView({ branches }: { branches: Branch[] }) {
                             "coaching.present.now",
                             "bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300",
                           ) : null}
+                          {/* v2 — live private-coaching entitlement of the member */}
+                          {assignment.privateSessionsRemaining !== null &&
+                          assignment.privateSessionsRemaining !== undefined ? (
+                            <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-violet-800 dark:bg-violet-950 dark:text-violet-300">
+                              {t("coaching.assign.privateRemaining", {
+                                remaining: assignment.privateSessionsRemaining,
+                                total: assignment.privateSessionsTotal ?? 0,
+                              })}
+                            </span>
+                          ) : null}
                         </div>
                       ) : (
                         <div className="space-y-0.5">

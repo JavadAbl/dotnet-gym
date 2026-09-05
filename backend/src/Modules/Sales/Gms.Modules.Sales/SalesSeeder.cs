@@ -45,6 +45,10 @@ public static class SalesSeeder
         var vip = packages.First(p => p.NameEn.StartsWith("VIP", StringComparison.Ordinal));
         var basic = packages.First(p => p.NameEn.StartsWith("Basic", StringComparison.Ordinal));
 
+        // v2 — private coach packages (global definitions, both branches granted in the catalog seeds).
+        var private30 = packages.FirstOrDefault(p => p.Kind == "PrivateCoaching" && p.SessionsCount == 30);
+        var private20 = packages.FirstOrDefault(p => p.Kind == "PrivateCoaching" && p.SessionsCount == 20);
+
         var ali = await membersApi.GetByCardCodeAsync("RF-0001");
         var sara = await membersApi.GetByCardCodeAsync("RF-0002");
         var reza = await membersApi.GetByCardCodeAsync("RF-0003");
@@ -169,6 +173,53 @@ public static class SalesSeeder
             AmountToman = aliBasicRefund.AmountToman, Note = aliBasicRefund.Reason,
             CreatedAtUtc = now.AddDays(-38),
         });
+
+        await db.SaveChangesAsync();
+
+        // ---------------------------------------------------------------- v2 — private coach packages (CASH — wallet ledger stays exactly as before)
+        // SessionsUsed mirrors the seeded training-record history (Ali 3 sessions, Maryam 2)
+        // so the Coaching workspace's remaining-session counters reconcile from the first boot.
+        if (private30 is { } p30)
+        {
+            var aliPrivate = new MemberPackage
+            {
+                MemberId = ali.Id, PackageId = p30.Id, BranchId = north,
+                PackageKind = MemberPackageKind.PrivateCoaching,
+                SessionsTotal = p30.SessionsCount, SessionsUsed = 3,
+                StartedAtUtc = now.AddDays(-25), ExpiresAtUtc = now.AddDays(-25).AddDays(p30.DurationDays),
+                PricePaidToman = p30.PriceToman,
+                CreatedAtUtc = now.AddDays(-25),
+            };
+            db.MemberPackages.Add(aliPrivate);
+            db.Receipts.Add(new Receipt
+            {
+                MemberId = ali.Id, BranchId = north, MemberPackageId = aliPrivate.Id,
+                Kind = ReceiptKind.PackagePurchase, PaymentMethod = PaymentMethod.Cash,
+                AmountToman = p30.PriceToman, Note = "Private coaching package (seed).",
+                CreatedAtUtc = now.AddDays(-25),
+            });
+        }
+
+        if (private20 is { } p20)
+        {
+            var maryamPrivate = new MemberPackage
+            {
+                MemberId = maryam.Id, PackageId = p20.Id, BranchId = north,
+                PackageKind = MemberPackageKind.PrivateCoaching,
+                SessionsTotal = p20.SessionsCount, SessionsUsed = 2,
+                StartedAtUtc = now.AddDays(-9), ExpiresAtUtc = now.AddDays(-9).AddDays(p20.DurationDays),
+                PricePaidToman = p20.PriceToman,
+                CreatedAtUtc = now.AddDays(-9),
+            };
+            db.MemberPackages.Add(maryamPrivate);
+            db.Receipts.Add(new Receipt
+            {
+                MemberId = maryam.Id, BranchId = north, MemberPackageId = maryamPrivate.Id,
+                Kind = ReceiptKind.PackagePurchase, PaymentMethod = PaymentMethod.Cash,
+                AmountToman = p20.PriceToman, Note = "Private coaching package (seed).",
+                CreatedAtUtc = now.AddDays(-9),
+            });
+        }
 
         await db.SaveChangesAsync();
     }

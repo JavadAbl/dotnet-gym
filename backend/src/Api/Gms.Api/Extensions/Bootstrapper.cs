@@ -89,9 +89,10 @@ internal static class Bootstrapper
 
     /// <summary>
     /// Brings one database up to date via EF Core migrations. Safe upgrade paths:
-    /// • fresh database            → MigrateAsync applies the Initial migration;
-    /// • legacy EnsureCreated DB   → migrations stamped as applied (baseline), schema untouched;
-    /// • already-migrated DB       → MigrateAsync applies any pending migrations (no-op today).
+    /// • fresh database            → MigrateAsync applies every migration in order;
+    /// • legacy EnsureCreated DB   → the Initial migration is stamped as applied (its schema
+    ///   matches it), later migrations stay PENDING and are applied for real by MigrateAsync;
+    /// • already-migrated DB       → MigrateAsync applies any pending migrations.
     /// </summary>
     private static async Task InitializeDatabaseAsync<TContext>(
         IServiceProvider provider, ILogger logger, string label)
@@ -123,10 +124,14 @@ internal static class Bootstrapper
 
             if (hasUserTables && !hasHistory)
             {
-                await StampMigrationsAsync(connection, migrations);
+                // Legacy EnsureCreated database: its schema was generated from the model at the time
+                // EnsureCreated was the bootstrap (pre-Phase-9), which matches the Initial migration's
+                // final state — so ONLY Initial is stamped. Migrations added afterwards (v2+) remain
+                // pending and MigrateAsync below executes them for real, upgrading the legacy schema.
+                await StampMigrationsAsync(connection, [migrations[0]]);
                 logger.LogInformation(
-                    "[{Module}] legacy EnsureCreated database baselined: {Count} migration(s) stamped as applied.",
-                    label, migrations.Count);
+                    "[{Module}] legacy EnsureCreated database baselined: Initial stamped, {Pending} later migration(s) pending.",
+                    label, migrations.Count - 1);
             }
         }
         finally
@@ -166,10 +171,11 @@ internal static class Bootstrapper
     }
 
     /// <summary>
-    /// Baselines a legacy EnsureCreated database: its schema was generated from the current model,
-    /// which matches the final state of the shipped migrations — so every migration is recorded
-    /// in the history table and MigrateAsync becomes a no-op. Migration ids are compile-time
-    /// constants owned by this solution (no user input), so literal interpolation is safe.
+    /// Records the given migrations in the history table WITHOUT executing them (baseline).
+    /// v2 — callers pass only the Initial migration: the schema of a legacy EnsureCreated
+    /// database equals Initial's final state, and every later migration must run for real.
+    /// Migration ids are compile-time constants owned by this solution (no user input),
+    /// so literal interpolation is safe.
     /// </summary>
     private static async Task StampMigrationsAsync(DbConnection connection, IReadOnlyList<string> migrationIds)
     {

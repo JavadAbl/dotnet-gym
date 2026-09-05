@@ -1,9 +1,17 @@
 namespace Gms.Modules.Catalog.Public;
 
+/// <summary>Package family (v2): Exercise packages gate gym entry; PrivateCoaching packages gate coach service.</summary>
+public record PackageKindNames
+{
+    public const string Exercise = "Exercise";
+    public const string PrivateCoaching = "PrivateCoaching";
+}
+
 public record ExercisePackageDto(
     Guid Id,
     string NameEn,
     string NameFa,
+    string Kind,
     int SessionsCount,
     int DurationDays,
     long PriceToman,

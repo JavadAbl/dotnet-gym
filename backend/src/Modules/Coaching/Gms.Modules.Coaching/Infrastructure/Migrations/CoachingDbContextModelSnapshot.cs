@@ -127,6 +127,9 @@ namespace Gms.Modules.Coaching.Infrastructure.Migrations
                     b.Property<Guid?>("TrainingPlanId")
                         .HasColumnType("TEXT");
 
+                    b.Property<Guid?>("MemberPackageId")
+                        .HasColumnType("TEXT");
+
                     b.Property<Guid>("BranchId")
                         .HasColumnType("TEXT");
 
@@ -164,6 +167,8 @@ namespace Gms.Modules.Coaching.Infrastructure.Migrations
                     b.HasIndex("BranchId");
 
                     b.HasIndex("PerformedAtUtc");
+
+                    b.HasIndex("MemberPackageId");
 
                     b.ToTable("TrainingRecords", (string)null);
                 });

@@ -11,6 +11,7 @@ public static class SalesMappings
             memberPackage.MemberId,
             memberPackage.PackageId,
             memberPackage.BranchId,
+            memberPackage.PackageKind.ToString(),
             memberPackage.SessionsTotal,
             memberPackage.SessionsUsed,
             memberPackage.StartedAtUtc,
