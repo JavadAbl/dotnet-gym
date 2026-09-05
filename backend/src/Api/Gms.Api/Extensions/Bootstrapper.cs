@@ -3,6 +3,7 @@ using Gms.Modules.Attendance;
 using Gms.Modules.Branches;
 using Gms.Modules.Branches.Public;
 using Gms.Modules.Catalog;
+using Gms.Modules.Coaching;
 using Gms.Modules.Identity;
 using Gms.Modules.Members;
 using Gms.Modules.Sales;
@@ -23,7 +24,8 @@ internal static class Bootstrapper
 
         // Seed order matters: branches → identity (links operators) → catalog (grants access)
         // → members (demo data) → wallet (opening balances for demo members) → sales (demo purchases)
-        // → attendance (demo visits referencing member packages).
+        // → attendance (demo visits referencing member packages)
+        // → coaching (demo assignments/plans/records referencing members + coach users).
         using (var scope = services.CreateScope())
         {
             await BranchesSeeder.SeedAsync(scope.ServiceProvider);
@@ -42,6 +44,7 @@ internal static class Bootstrapper
         await WalletSeeder.SeedAsync(services);
         await SalesSeeder.SeedAsync(services);
         await AttendanceSeeder.SeedAsync(services);
+        await CoachingSeeder.SeedAsync(services);
     }
 }
 

@@ -100,3 +100,27 @@ Stage Summary:
 - Frontend preview on :3000 (demo mode, DB key gms.demo.db.v5 → fresh seeds with linked TopUp receipts); real API via NEXT_PUBLIC_GMS_API_BASE.
 - Wallet payments already serve Sales (Phase 3); Buffet wallet payments arrive in Phase 7 via the same IWalletModule contract (Kind=BuffetPurchase reserved).
 - Next: Phase 6 — Coaching (coach assignments, training plans, training records, coach workspace).
+
+---
+Task ID: 6 (Phase 6 — Coaching module)
+Agent: main (Super Z)
+Task: Implement Phase 6 (Coaching) per gms-implementation-plan.md v1.1 roadmap
+
+Work Log:
+- Verified baseline first: progress tracker + worklog showed Phases 0–5 complete (65%); Phase 6 = Coaching (assignments, plans, records, coach workspace; no commissions — locked decision #8).
+- Identity extension (contract-only): IIdentityModule.GetCoachesAsync (active coach accounts, non-breaking); IdentitySeeder gained coach.south operator (fresh DBs) so both branches have coaches.
+- Coaching module (own SQLite DB gms-coaching.db): entities CoachAssignment (coachId, memberId, branchId, releasedAt, note), TrainingPlan (title/goal/content, isActive, archivedAt), TrainingRecord (summary, durationMinutes, intensity Low|Medium|High, optional in-module plan link); CoachingDbContext with partial unique index (CoachId+MemberId WHERE ReleasedAtUtc IS NULL) enforcing one active pair at the DB level; hand-written mappings.
+- Endpoints: POST /api/v1/coaching/assignments (Management; coach must be active via contract, member Active gate, branch pinned from JWT or explicit for admin, duplicate gate + DbUpdateException backstop → coaching.assignment_exists 409); GET /coaching/assignments (Staff; coach role forced coachId=self + branch=self, active-first ordering, search via IMembersModule.FindIdsAsync, live presence badges via IAttendanceModule.IsMemberPresentAsync per page); POST /assignments/{id}/release (management or owning coach; already_released 409); POST /coaching/plans (EnsureCoachOrAdmin 403 for reception/buffet; coach self-scoped from sub; REQUIRES active assignment → coaching.member_not_assigned; auto-archives the author's previous active plan); GET /coaching/plans; POST /plans/{id}/archive; POST /coaching/records (assignment-gated, plan link must belong to the pair, duration 1–600 + intensity whitelist + no-future-time validation, branch pinned/explicit); GET /coaching/records; GET /coaching/coaches (coach list + open-pair counts); GET /coaching/summary (scoped KPIs; membersPresentNow consumes the Phase 4 IAttendanceModule hook, bounded to 100 pairs).
+- ErrorCodes: 11 new coaching.* codes; GmsException → ProblemDetails + errorCode everywhere.
+- Wiring: Coaching csproj references only BuildingBlocks + Identity/Members/Branches/Attendance .Public contracts; Api csproj ref, appsettings Coaching connection string, AddCoachingModule/MapCoachingEndpoints, WAL bootstrap entry, seed order …attendance→coaching; CoachingSeeder (2 active + 1 released assignment, Month-1-archived-by-Month-2 + mobility plans, 5 records, all resolved via public contracts).
+- Frontend: types (Coach/CoachAssignment/TrainingPlan/TrainingRecord/CoachingSummary + queries/requests); demo-store v6 (DB key bump; coach.south user; coaching collections + seedDemoCoaching mirror); demo-coaching adapter mirroring endpoints + errorCodes exactly (assignment-gates, auto-archive, presence resolved from the attendance store); api client +10 coaching functions; i18n +~115 fa/en keys (incl. errors.coaching.*); dashboard phase note → coaching.
+- Coaching workspace: KPI chips (active members / active plans / sessions 7d / present now), tabs Assignments/Plans/Records, debounced member search, coach+branch+status filters (admin) vs pinned scope (coach), AssignCoachDialog (coach select with open-pair counts, active-member search, branch pinned/picker), PlanDialog + PlanContentDialog (pre-wrap viewer), RecordDialog (plan link incl. archived, duration gate, intensity), release/archive AlertDialogs; nav "coaching" (ClipboardList) for all staff roles; coach role sees hint banner and no assign button.
+- Fixed during E2E: missing coaching.column.plan i18n key (raw key in records header), coach-filter "all" label, unused-import/dead-code cleanups in new components.
+- Verified: eslint clean, tsc clean (GMS sources), next build passes; agent-browser E2E: duplicate pair rejected with localized error (store row count unchanged 3), released pair re-assigned (4 rows, KPI 3), plan create flipped Month-2 → Archived (exactly-one-active), member selects list only assigned actives, session logged with Month-3 plan link + 60min + High, coach.north login fully scoped (KPIs 2/2/5/1 vs admin 3/2/5/2, no assign button/filters), fa RTL + Jalali + EN/LTR + mobile 390px screenshots (download/gms-phase6-coaching-admin-fa.png, gms-phase6-coaching-fa.png, gms-phase6-mobile.png); zero console errors.
+
+Stage Summary:
+- Phase 6 complete. Weighted progress 65% → 75%.
+- Backend: cd backend && dotnet run --project src/Api/Gms.Api (admin/Admin@123, coach.north/coach.south Operator@123) — coaching endpoints under /api/v1 (Swagger UI at /swagger).
+- Frontend preview on :3000 (demo mode, DB key gms.demo.db.v6 → fresh coaching seeds); real API via NEXT_PUBLIC_GMS_API_BASE.
+- ICoachingModule.GetActiveForMemberAsync ready for Phase 8 dashboards; member-sheet coach section is a candidate polish item.
+- Next: Phase 7 — Buffet (products & per-branch price admin, POS order cash/wallet; Kind=BuffetPurchase ledger kind reserved).

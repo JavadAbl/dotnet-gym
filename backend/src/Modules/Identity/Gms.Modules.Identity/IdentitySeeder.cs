@@ -83,7 +83,19 @@ public static class IdentitySeeder
             IsActive = true,
         };
 
-        db.Users.AddRange(admin, receptionNorth, receptionSouth, buffetNorth, coachNorth);
+        // coach.south added in Phase 6 — the coaching workspace needs at least one coach
+        // per branch for assignments, plans and records to be meaningful on both sites.
+        var coachSouth = new AppUser
+        {
+            Username = "coach.south",
+            PasswordHash = PasswordHasher.Hash(DefaultOperatorPassword),
+            DisplayName = "Coach — South",
+            Role = UserRoles.Coach,
+            BranchId = southId,
+            IsActive = true,
+        };
+
+        db.Users.AddRange(admin, receptionNorth, receptionSouth, buffetNorth, coachNorth, coachSouth);
         await db.SaveChangesAsync();
     }
 }

@@ -17,9 +17,11 @@ interface Stats {
 export function DashboardView({
   onOpenAttendance,
   onOpenWallet,
+  onOpenCoaching,
 }: {
   onOpenAttendance: () => void;
   onOpenWallet: () => void;
+  onOpenCoaching: () => void;
 }) {
   const { t, locale } = useI18n();
   const [stats, setStats] = React.useState<Stats | null>(null);
@@ -94,12 +96,12 @@ export function DashboardView({
 
       <div className="rounded-xl border bg-card p-4 text-sm leading-relaxed text-muted-foreground">
         {t("dashboard.phaseNote")}
-        <button type="button" onClick={onOpenAttendance} className="mx-1 font-medium text-emerald-700 underline-offset-4 hover:underline dark:text-emerald-400">
-          {t("nav.attendance")}
+        <button type="button" onClick={onOpenCoaching} className="mx-1 font-medium text-emerald-700 underline-offset-4 hover:underline dark:text-emerald-400">
+          {t("nav.coaching")}
         </button>
         <span className="mx-1">·</span>
-        <button type="button" onClick={onOpenWallet} className="font-medium text-emerald-700 underline-offset-4 hover:underline dark:text-emerald-400">
-          {t("nav.wallet")}
+        <button type="button" onClick={onOpenAttendance} className="font-medium text-emerald-700 underline-offset-4 hover:underline dark:text-emerald-400">
+          {t("nav.attendance")}
         </button>
       </div>
     </div>

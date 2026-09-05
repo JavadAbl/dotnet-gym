@@ -35,12 +35,31 @@ import {
   demoListWalletTransactions,
   demoTopUp,
 } from "./demo-wallet";
+import {
+  demoArchiveTrainingPlan,
+  demoCoachingSummary,
+  demoCreateAssignment,
+  demoCreateTrainingPlan,
+  demoCreateTrainingRecord,
+  demoListCoachAssignments,
+  demoListCoaches,
+  demoListTrainingPlans,
+  demoListTrainingRecords,
+  demoReleaseAssignment,
+} from "./demo-coaching";
 import type {
   AttendanceEntry,
   AttendanceQuery,
   Branch,
   BuffetProduct,
   CheckInRequest,
+  CoachAssignment,
+  CoachAssignmentQuery,
+  CoachListResponse,
+  CoachingSummary,
+  CreateAssignmentRequest,
+  CreatePlanRequest,
+  CreateRecordRequest,
   ExercisePackage,
   LoginResponse,
   Member,
@@ -57,6 +76,10 @@ import type {
   RefundRequest,
   TopUpRequest,
   TopUpResponse,
+  TrainingPlan,
+  TrainingPlanQuery,
+  TrainingRecord,
+  TrainingRecordQuery,
   WalletAccountsPage,
   WalletAccountsQuery,
   WalletSnapshot,
@@ -311,6 +334,90 @@ export function topUpWallet(memberId: string, req: TopUpRequest): Promise<TopUpR
     method: "POST",
     body: JSON.stringify(req),
   });
+}
+
+// ---------------------------------------------------------------- coaching (Phase 6)
+
+export function listCoaches(): Promise<CoachListResponse> {
+  if (isDemoMode) return demoListCoaches();
+  return request<CoachListResponse>("/coaching/coaches");
+}
+
+export function searchCoachAssignments(query: CoachAssignmentQuery): Promise<PagedResult<CoachAssignment>> {
+  if (isDemoMode) return demoListCoachAssignments(query);
+  const params = new URLSearchParams();
+  if (query.coachId) params.set("coachId", query.coachId);
+  if (query.memberId) params.set("memberId", query.memberId);
+  if (query.branchId) params.set("branchId", query.branchId);
+  if (query.status) params.set("status", query.status);
+  if (query.search) params.set("search", query.search);
+  params.set("page", String(query.page ?? 1));
+  params.set("pageSize", String(query.pageSize ?? 20));
+  return request<PagedResult<CoachAssignment>>(`/coaching/assignments?${params.toString()}`);
+}
+
+export function createCoachAssignment(req: CreateAssignmentRequest): Promise<CoachAssignment> {
+  if (isDemoMode) return demoCreateAssignment(req);
+  return request<CoachAssignment>("/coaching/assignments", {
+    method: "POST",
+    body: JSON.stringify(req),
+  });
+}
+
+export function releaseCoachAssignment(assignmentId: string): Promise<CoachAssignment> {
+  if (isDemoMode) return demoReleaseAssignment(assignmentId);
+  return request<CoachAssignment>(`/coaching/assignments/${assignmentId}/release`, { method: "POST" });
+}
+
+export function searchTrainingPlans(query: TrainingPlanQuery): Promise<PagedResult<TrainingPlan>> {
+  if (isDemoMode) return demoListTrainingPlans(query);
+  const params = new URLSearchParams();
+  if (query.coachId) params.set("coachId", query.coachId);
+  if (query.memberId) params.set("memberId", query.memberId);
+  if (query.activeOnly) params.set("activeOnly", "true");
+  if (query.search) params.set("search", query.search);
+  params.set("page", String(query.page ?? 1));
+  params.set("pageSize", String(query.pageSize ?? 20));
+  return request<PagedResult<TrainingPlan>>(`/coaching/plans?${params.toString()}`);
+}
+
+export function createTrainingPlan(req: CreatePlanRequest): Promise<TrainingPlan> {
+  if (isDemoMode) return demoCreateTrainingPlan(req);
+  return request<TrainingPlan>("/coaching/plans", {
+    method: "POST",
+    body: JSON.stringify(req),
+  });
+}
+
+export function archiveTrainingPlan(planId: string): Promise<TrainingPlan> {
+  if (isDemoMode) return demoArchiveTrainingPlan(planId);
+  return request<TrainingPlan>(`/coaching/plans/${planId}/archive`, { method: "POST" });
+}
+
+export function searchTrainingRecords(query: TrainingRecordQuery): Promise<PagedResult<TrainingRecord>> {
+  if (isDemoMode) return demoListTrainingRecords(query);
+  const params = new URLSearchParams();
+  if (query.coachId) params.set("coachId", query.coachId);
+  if (query.memberId) params.set("memberId", query.memberId);
+  if (query.branchId) params.set("branchId", query.branchId);
+  if (query.search) params.set("search", query.search);
+  params.set("page", String(query.page ?? 1));
+  params.set("pageSize", String(query.pageSize ?? 20));
+  return request<PagedResult<TrainingRecord>>(`/coaching/records?${params.toString()}`);
+}
+
+export function createTrainingRecord(req: CreateRecordRequest): Promise<TrainingRecord> {
+  if (isDemoMode) return demoCreateTrainingRecord(req);
+  return request<TrainingRecord>("/coaching/records", {
+    method: "POST",
+    body: JSON.stringify(req),
+  });
+}
+
+export function getCoachingSummary(coachId?: string): Promise<CoachingSummary> {
+  if (isDemoMode) return demoCoachingSummary(coachId);
+  const query = coachId ? `?coachId=${encodeURIComponent(coachId)}` : "";
+  return request<CoachingSummary>(`/coaching/summary${query}`);
 }
 
 export { GmsApiError };

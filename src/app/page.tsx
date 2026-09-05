@@ -7,6 +7,7 @@ import type { Branch, ExercisePackage, Member, MemberPackage, MemberStatus } fro
 import { AppShell, type ViewKey } from "@/components/gms/app-shell";
 import { AttendanceView } from "@/components/gms/attendance-view";
 import { BranchesView } from "@/components/gms/branches-view";
+import { CoachingView } from "@/components/gms/coaching-view";
 import { DashboardView } from "@/components/gms/dashboard-view";
 import { LoginView } from "@/components/gms/login-view";
 import { MemberDetailSheet } from "@/components/gms/member-detail-sheet";
@@ -150,6 +151,7 @@ function Workspace() {
         <DashboardView
           onOpenAttendance={() => setView("attendance")}
           onOpenWallet={() => setView("wallet")}
+          onOpenCoaching={() => setView("coaching")}
         />
       ) : null}
       {view === "members" ? (
@@ -173,6 +175,7 @@ function Workspace() {
       {view === "wallet" ? (
         <WalletView branches={branches} refreshSignal={walletRefresh} />
       ) : null}
+      {view === "coaching" ? <CoachingView branches={branches} /> : null}
       {view === "packages" ? <PackagesView /> : null}
       {view === "branches" ? <BranchesView /> : null}
 

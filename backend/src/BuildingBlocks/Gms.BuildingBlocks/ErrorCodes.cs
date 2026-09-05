@@ -56,4 +56,17 @@ public static class ErrorCodes
     public const string AttendanceEntryConflict = "attendance.entry_conflict";
     public const string AttendanceEntryNotFound = "attendance.entry_not_found";
     public const string AttendanceAlreadyCheckedOut = "attendance.already_checked_out";
+
+    // coaching (Phase 6)
+    public const string CoachingCoachNotFound = "coaching.coach_not_found";
+    public const string CoachingMemberNotFound = "coaching.member_not_found";
+    public const string CoachingMemberInactive = "coaching.member_inactive";
+    public const string CoachingAssignmentNotFound = "coaching.assignment_not_found";
+    public const string CoachingAssignmentExists = "coaching.assignment_exists";
+    public const string CoachingAlreadyReleased = "coaching.already_released";
+    public const string CoachingMemberNotAssigned = "coaching.member_not_assigned";
+    public const string CoachingPlanNotFound = "coaching.plan_not_found";
+    public const string CoachingPlanNotActive = "coaching.plan_not_active";
+    public const string CoachingRecordNotFound = "coaching.record_not_found";
+    public const string CoachingForbidden = "coaching.forbidden";
 }

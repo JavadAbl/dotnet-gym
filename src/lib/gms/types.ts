@@ -288,6 +288,136 @@ export interface TopUpResponse {
   balanceToman: number;
 }
 
+// ---------------------------------------------------------------- coaching (Phase 6)
+
+export interface Coach {
+  id: string;
+  displayName: string;
+  username: string;
+  branchId?: string | null;
+}
+
+/** Coach list for the assignment dialog, plus each coach's open assignment count. */
+export interface CoachListResponse {
+  items: Coach[];
+  activeAssignmentCounts: Record<string, number>;
+}
+
+export interface CoachAssignment {
+  id: string;
+  coachId: string;
+  memberId: string;
+  branchId: string;
+  assignedAtUtc: string;
+  releasedAtUtc?: string | null;
+  note?: string | null;
+  // enrichment resolved by the API / demo adapter
+  coachName: string;
+  memberCode: string;
+  memberFullName: string;
+  memberStatus: MemberStatus;
+  branchNameEn: string;
+  branchNameFa: string;
+  /** Live from the Attendance module — the member is currently checked in. */
+  memberIsPresent: boolean;
+}
+
+export interface TrainingPlan {
+  id: string;
+  coachId: string;
+  memberId: string;
+  title: string;
+  goal?: string | null;
+  content: string;
+  isActive: boolean;
+  createdAtUtc: string;
+  archivedAtUtc?: string | null;
+  coachName: string;
+  memberCode: string;
+  memberFullName: string;
+}
+
+export interface TrainingRecord {
+  id: string;
+  coachId: string;
+  memberId: string;
+  trainingPlanId?: string | null;
+  branchId: string;
+  performedAtUtc: string;
+  summary: string;
+  durationMinutes?: number | null;
+  intensity?: "Low" | "Medium" | "High" | null;
+  note?: string | null;
+  coachName: string;
+  memberCode: string;
+  memberFullName: string;
+  branchNameEn: string;
+  branchNameFa: string;
+  planTitle?: string | null;
+}
+
+export interface CoachingSummary {
+  activeAssignments: number;
+  activePlans: number;
+  recordsLast7Days: number;
+  membersPresentNow: number;
+}
+
+export interface CoachAssignmentQuery {
+  coachId?: string;
+  memberId?: string;
+  branchId?: string;
+  status?: "active" | "released" | "";
+  search?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface TrainingPlanQuery {
+  coachId?: string;
+  memberId?: string;
+  activeOnly?: boolean;
+  search?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface TrainingRecordQuery {
+  coachId?: string;
+  memberId?: string;
+  branchId?: string;
+  search?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface CreateAssignmentRequest {
+  coachId: string;
+  memberId: string;
+  branchId?: string;
+  note?: string;
+}
+
+export interface CreatePlanRequest {
+  coachId?: string;
+  memberId: string;
+  title: string;
+  goal?: string;
+  content: string;
+}
+
+export interface CreateRecordRequest {
+  coachId?: string;
+  memberId: string;
+  trainingPlanId?: string;
+  summary: string;
+  performedAtUtc?: string;
+  durationMinutes?: number;
+  intensity?: "Low" | "Medium" | "High";
+  note?: string;
+  branchId?: string;
+}
+
 export interface Session {
   token: string;
   expiresAt: number; // epoch ms

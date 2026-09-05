@@ -31,4 +31,13 @@ internal sealed class IdentityModuleApi(IdentityDbContext db) : Public.IIdentity
         var user = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
         return user?.ToDto();
     }
+
+    public async Task<IReadOnlyList<Public.AuthUserDto>> GetCoachesAsync(CancellationToken cancellationToken = default)
+    {
+        var coaches = await db.Users.AsNoTracking()
+            .Where(u => u.Role == Gms.BuildingBlocks.UserRoles.Coach && u.IsActive)
+            .OrderBy(u => u.DisplayName)
+            .ToListAsync(cancellationToken);
+        return coaches.Select(u => u.ToDto()).ToList();
+    }
 }

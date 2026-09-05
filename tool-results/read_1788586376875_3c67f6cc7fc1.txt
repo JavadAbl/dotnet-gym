@@ -1,0 +1,871 @@
+     1→     1→// Demo adapter — implements the same contract as the .NET API so the sandbox preview
+     2→     2→// is fully interactive without a running backend. State persists in localStorage.
+     3→     3→// It mirrors backend seeds (Phase 1) and member endpoints (Phase 2).
+     4→     4→
+     5→     5→import type {
+     6→     6→  AttendanceEntry,
+     7→     7→  Branch,
+     8→     8→  BuffetProduct,
+     9→     9→  ExercisePackage,
+    10→    10→  LoginResponse,
+    11→    11→  Member,
+    12→    12→  MemberPackage,
+    13→    13→  MemberQuery,
+    14→    14→  MemberStatus,
+    15→    15→  MemberWriteModel,
+    16→    16→  PackageFreeze,
+    17→    17→  PackageRefund,
+    18→    18→  PagedResult,
+    19→    19→  Receipt,
+    20→    20→  WalletTransaction,
+    21→    21→} from "./types";
+    22→    22→
+    23→    23→const DB_KEY = "gms.demo.db.v5";
+    24→    24→const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
+    25→    25→
+    26→    26→interface DemoUser {
+    27→    27→  id: string;
+    28→    28→  username: string;
+    29→    29→  password: string;
+    30→    30→  displayName: string;
+    31→    31→  role: "admin" | "reception" | "buffet" | "coach";
+    32→    32→  branchId?: string | null;
+    33→    33→}
+    34→    34→
+    35→    35→interface DemoWalletAccount {
+    36→    36→  id: string;
+    37→    37→  memberId: string;
+    38→    38→  balanceToman: number;
+    39→    39→}
+    40→    40→
+    41→    41→/** Stored record incl. the audit data served by the package-detail endpoint. */
+    42→    42→export type DemoMemberPackageRecord = MemberPackage & {
+    43→    43→  freezes: PackageFreeze[];
+    44→    44→  refund: PackageRefund | null;
+    45→    45→};
+    46→    46→
+    47→    47→/** Ledger row incl. internal account linkage (not part of the API contract). */
+    48→    48→export type DemoWalletTransaction = WalletTransaction & { walletAccountId: string };
+    49→    49→
+    50→    50→/** Attendance entry stored fully enriched (the demo resolves names at read time). */
+    51→    51→export type DemoAttendanceRecord = AttendanceEntry;
+    52→    52→
+    53→    53→interface DemoDb {
+    54→    54→  seededAt: string;
+    55→    55→  users: DemoUser[];
+    56→    56→  branches: Branch[];
+    57→    57→  packages: ExercisePackage[];
+    58→    58→  products: BuffetProduct[];
+    59→    59→  members: Member[];
+    60→    60→  memberPackages: DemoMemberPackageRecord[];
+    61→    61→  receipts: Receipt[];
+    62→    62→  walletAccounts: DemoWalletAccount[];
+    63→    63→  walletTransactions: DemoWalletTransaction[];
+    64→    64→  attendance: DemoAttendanceRecord[];
+    65→    65→}
+    66→    66→
+    67→    67→export const uid = () =>
+    68→    68→  typeof crypto !== "undefined" && "randomUUID" in crypto
+    69→    69→    ? crypto.randomUUID()
+    70→    70→    : `id-${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
+    71→    71→
+    72→    72→function seedDb(): DemoDb {
+    73→    73→  const northId = uid();
+    74→    74→  const southId = uid();
+    75→    75→  const now = new Date().toISOString();
+    76→    76→
+    77→    77→  const members: Member[] = [
+    78→    78→    {
+    79→    79→      id: uid(),
+    80→    80→      code: "M-00001",
+    81→    81→      fullName: "علی محمدی",
+    82→    82→      phoneNumber: "09121110001",
+    83→    83→      gender: "Male",
+    84→    84→      birthDateUtc: "1994-03-12T00:00:00.000Z",
+    85→    85→      joinDateUtc: now,
+    86→    86→      homeBranchId: northId,
+    87→    87→      cardCode: "RF-0001",
+    88→    88→      status: "Active",
+    89→    89→      notes: null,
+    90→    90→    },
+    91→    91→    {
+    92→    92→      id: uid(),
+    93→    93→      code: "M-00002",
+    94→    94→      fullName: "سارا کریمی",
+    95→    95→      phoneNumber: "09121110002",
+    96→    96→      gender: "Female",
+    97→    97→      birthDateUtc: "1998-09-25T00:00:00.000Z",
+    98→    98→      joinDateUtc: now,
+    99→    99→      homeBranchId: southId,
+   100→   100→      cardCode: "RF-0002",
+   101→   101→      status: "Active",
+   102→   102→      notes: null,
+   103→   103→    },
+   104→   104→    {
+   105→   105→      id: uid(),
+   106→   106→      code: "M-00003",
+   107→   107→      fullName: "رضا حسینی",
+   108→   108→      phoneNumber: "09121110003",
+   109→   109→      gender: "Male",
+   110→   110→      birthDateUtc: null,
+   111→   111→      joinDateUtc: now,
+   112→   112→      homeBranchId: southId,
+   113→   113→      cardCode: "RF-0003",
+   114→   114→      status: "Inactive",
+   115→   115→      notes: "درخواست تعلیق موقت",
+   116→   116→    },
+   117→   117→    {
+   118→   118→      id: uid(),
+   119→   119→      code: "M-00004",
+   120→   120→      fullName: "مریم احمدی",
+   121→   121→      phoneNumber: "09121110004",
+   122→   122→      gender: "Female",
+   123→   123→      birthDateUtc: "2001-01-05T00:00:00.000Z",
+   124→   124→      joinDateUtc: now,
+   125→   125→      homeBranchId: northId,
+   126→   126→      cardCode: "RF-0004",
+   127→   127→      status: "Active",
+   128→   128→      notes: null,
+   129→   129→    },
+   130→   130→  ];
+   131→   131→
+   132→   132→  const packages: ExercisePackage[] = [
+   133→   133→    {
+   134→   134→      id: uid(),
+   135→   135→      nameEn: "VIP — 12 Sessions / 1 Month",
+   136→   136→      nameFa: "ویژه — ۱۲ جلسه / یک ماه",
+   137→   137→      sessionsCount: 12,
+   138→   138→      durationDays: 30,
+   139→   139→      priceToman: 2_500_000,
+   140→   140→      isActive: true,
+   141→   141→      branchIds: [northId, southId],
+   142→   142→    },
+   143→   143→    {
+   144→   144→      id: uid(),
+   145→   145→      nameEn: "Basic — 8 Sessions / 2 Weeks",
+   146→   146→      nameFa: "پایه — ۸ جلسه / دو هفته",
+   147→   147→      sessionsCount: 8,
+   148→   148→      durationDays: 14,
+   149→   149→      priceToman: 1_200_000,
+   150→   150→      isActive: true,
+   151→   151→      branchIds: [southId],
+   152→   152→    },
+   153→   153→  ];
+   154→   154→
+   155→   155→  const products: BuffetProduct[] = [
+   156→   156→    {
+   157→   157→      id: uid(),
+   158→   158→      nameEn: "Water 500ml",
+   159→   159→      nameFa: "آب معدنی ۵۰۰ میلی‌لیتر",
+   160→   160→      isActive: true,
+   161→   161→      prices: [
+   162→   162→        { branchId: northId, priceToman: 15_000 },
+   163→   163→        { branchId: southId, priceToman: 15_000 },
+   164→   164→      ],
+   165→   165→    },
+   166→   166→    {
+   167→   167→      id: uid(),
+   168→   168→      nameEn: "Protein Bar",
+   169→   169→      nameFa: "بار پروتئین",
+   170→   170→      isActive: true,
+   171→   171→      prices: [
+   172→   172→        { branchId: northId, priceToman: 85_000 },
+   173→   173→        { branchId: southId, priceToman: 95_000 },
+   174→   174→      ],
+   175→   175→    },
+   176→   176→    {
+   177→   177→      id: uid(),
+   178→   178→      nameEn: "Energy Drink",
+   179→   179→      nameFa: "نوشیدنی انرژی‌زا",
+   180→   180→      isActive: true,
+   181→   181→      prices: [
+   182→   182→        { branchId: northId, priceToman: 60_000 },
+   183→   183→        { branchId: southId, priceToman: 60_000 },
+   184→   184→      ],
+   185→   185→    },
+   186→   186→  ];
+   187→   187→
+   188→   188→  const db: DemoDb = {
+   189→   189→    seededAt: now,
+   190→   190→    users: [
+   191→   191→      { id: uid(), username: "admin", password: "Admin@123", displayName: "مدیر سیستم", role: "admin", branchId: null },
+   192→   192→      { id: uid(), username: "reception.north", password: "Operator@123", displayName: "پذیرش — شعبه شمال", role: "reception", branchId: northId },
+   193→   193→      { id: uid(), username: "reception.south", password: "Operator@123", displayName: "پذیرش — شعبه جنوب", role: "reception", branchId: southId },
+   194→   194→      { id: uid(), username: "buffet.north", password: "Operator@123", displayName: "بوفه — شعبه شمال", role: "buffet", branchId: northId },
+   195→   195→      { id: uid(), username: "coach.north", password: "Operator@123", displayName: "مربی — شعبه شمال", role: "coach", branchId: northId },
+   196→   196→    ],
+   197→   197→    branches: [
+   198→   198→      { id: northId, nameEn: "North Branch", nameFa: "شعبه شمال", city: "تهران", phoneNumber: "021-22000001", isActive: true },
+   199→   199→      { id: southId, nameEn: "South Branch", nameFa: "شعبه جنوب", city: "تهران", phoneNumber: "021-22000002", isActive: true },
+   200→   200→    ],
+   201→   201→    packages,
+   202→   202→    products,
+   203→   203→    members,
+   204→   204→    memberPackages: [],
+   205→   205→    receipts: [],
+   206→   206→    walletAccounts: [],
+   207→   207→    walletTransactions: [],
+   208→   208→    attendance: [],
+   209→   209→  };
+   210→   210→
+   211→   211→  seedDemoSales(db);
+   212→   212→  seedDemoAttendance(db);
+   213→   213→  seedDemoWallet(db);
+   214→   214→  return db;
+   215→   215→}
+   216→   216→
+   217→   217→// ---------------------------------------------------------------- Phase 3 demo seeds (mirror of SalesSeeder/WalletSeeder)
+   218→   218→
+   219→   219→const daysFromNow = (days: number) => new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+   220→   220→
+   221→   221→function seedDemoSales(db: DemoDb): void {
+   222→   222→  const north = db.branches.find((b) => b.nameEn === "North Branch")!.id;
+   223→   223→  const south = db.branches.find((b) => b.nameEn === "South Branch")!.id;
+   224→   224→  const vip = db.packages.find((p) => p.nameEn.startsWith("VIP"))!;
+   225→   225→  const basic = db.packages.find((p) => p.nameEn.startsWith("Basic"))!;
+   226→   226→  const memberByCode = (code: string) => db.members.find((m) => m.code === code)!;
+   227→   227→
+   228→   228→  const ali = memberByCode("M-00001");
+   229→   229→  const sara = memberByCode("M-00002");
+   230→   230→  const reza = memberByCode("M-00003");
+   231→   231→  const maryam = memberByCode("M-00004");
+   232→   232→
+   233→   233→  // wallet accounts + opening top-ups — each backed by a real TopUp receipt so the
+   234→   234→  // receipts list reconciles with the ledger exactly like the Phase 5 backend seeds.
+   235→   235→  const branchById = (id: string) => db.branches.find((b) => b.id === id)!;
+   236→   236→  const credit = (member: Member, amount: number, at: string, note = "Opening balance (seed).") => {
+   237→   237→    let account = db.walletAccounts.find((a) => a.memberId === member.id);
+   238→   238→    if (!account) {
+   239→   239→      account = { id: uid(), memberId: member.id, balanceToman: 0 };
+   240→   240→      db.walletAccounts.push(account);
+   241→   241→    }
+   242→   242→    account.balanceToman += amount;
+   243→   243→    const receiptId = uid();
+   244→   244→    const branch = branchById(member.homeBranchId);
+   245→   245→    db.receipts.push({
+   246→   246→      id: receiptId,
+   247→   247→      memberId: member.id,
+   248→   248→      branchId: member.homeBranchId,
+   249→   249→      memberPackageId: null,
+   250→   250→      kind: "TopUp",
+   251→   251→      paymentMethod: "Cash",
+   252→   252→      amountToman: amount,
+   253→   253→      note,
+   254→   254→      createdAtUtc: at,
+   255→   255→      memberCode: member.code,
+   256→   256→      memberFullName: member.fullName,
+   257→   257→      branchNameEn: branch.nameEn,
+   258→   258→      branchNameFa: branch.nameFa,
+   259→   259→      packageNameEn: "—",
+   260→   260→      packageNameFa: "—",
+   261→   261→    });
+   262→   262→    db.walletTransactions.push({
+   263→   263→      id: uid(),
+   264→   264→      walletAccountId: account.id,
+   265→   265→      amountToman: amount,
+   266→   266→      kind: "TopUp",
+   267→   267→      balanceAfter: account.balanceToman,
+   268→   268→      relatedReceiptId: receiptId,
+   269→   269→      note,
+   270→   270→      createdAtUtc: at,
+   271→   271→    });
+   272→   272→  };
+   273→   273→
+   274→   274→  const debit = (memberId: string, amount: number, kind: WalletTransaction["kind"], at: string, note: string, receiptId?: string) => {
+   275→   275→    const account = db.walletAccounts.find((a) => a.memberId === memberId)!;
+   276→   276→    account.balanceToman -= amount;
+   277→   277→    db.walletTransactions.push({
+   278→   278→      id: uid(),
+   279→   279→      walletAccountId: account.id,
+   280→   280→      amountToman: -amount,
+   281→   281→      kind,
+   282→   282→      balanceAfter: account.balanceToman,
+   283→   283→      relatedReceiptId: receiptId ?? null,
+   284→   284→      note,
+   285→   285→      createdAtUtc: at,
+   286→   286→    });
+   287→   287→  };
+   288→   288→
+   289→   289→  credit(ali, 5_000_000, daysFromNow(-7));
+   290→   290→  credit(sara, 3_000_000, daysFromNow(-7));
+   291→   291→  credit(reza, 500_000, daysFromNow(-7));
+   292→   292→  credit(maryam, 1_000_000, daysFromNow(-7));
+   293→   293→
+   294→   294→  // 1) Ali — VIP @ North, WALLET, Active (used 3/12)
+   295→   295→  const aliVipId = uid();
+   296→   296→  const aliVipReceiptId = uid();
+   297→   297→  db.memberPackages.push({
+   298→   298→    id: aliVipId,
+   299→   299→    memberId: ali.id,
+   300→   300→    packageId: vip.id,
+   301→   301→    branchId: north,
+   302→   302→    sessionsTotal: vip.sessionsCount,
+   303→   303→    sessionsUsed: 3,
+   304→   304→    startedAtUtc: daysFromNow(-6),
+   305→   305→    expiresAtUtc: daysFromNow(-6 + vip.durationDays),
+   306→   306→    status: "Active",
+   307→   307→    pricePaidToman: vip.priceToman,
+   308→   308→    memberCode: ali.code,
+   309→   309→    memberFullName: ali.fullName,
+   310→   310→    packageNameEn: vip.nameEn,
+   311→   311→    packageNameFa: vip.nameFa,
+   312→   312→    branchNameEn: "North Branch",
+   313→   313→    branchNameFa: "شعبه شمال",
+   314→   314→    isExpired: false,
+   315→   315→    freezes: [],
+   316→   316→    refund: null,
+   317→   317→  });
+   318→   318→  db.receipts.push({
+   319→   319→    id: aliVipReceiptId,
+   320→   320→    memberId: ali.id,
+   321→   321→    branchId: north,
+   322→   322→    memberPackageId: aliVipId,
+   323→   323→    kind: "PackagePurchase",
+   324→   324→    paymentMethod: "Wallet",
+   325→   325→    amountToman: vip.priceToman,
+   326→   326→    note: null,
+   327→   327→    createdAtUtc: daysFromNow(-6),
+   328→   328→    memberCode: ali.code,
+   329→   329→    memberFullName: ali.fullName,
+   330→   330→    branchNameEn: "North Branch",
+   331→   331→    branchNameFa: "شعبه شمال",
+   332→   332→    packageNameEn: vip.nameEn,
+   333→   333→    packageNameFa: vip.nameFa,
+   334→   334→  });
+   335→   335→  debit(ali.id, vip.priceToman, "PackagePurchase", daysFromNow(-6), "Package purchase: VIP (seed).", aliVipReceiptId);
+   336→   336→
+   337→   337→  // 2) Sara — Basic @ South, cash, Active (used 2/8)
+   338→   338→  const saraBasicId = uid();
+   339→   339→  db.memberPackages.push({
+   340→   340→    id: saraBasicId,
+   341→   341→    memberId: sara.id,
+   342→   342→    packageId: basic.id,
+   343→   343→    branchId: south,
+   344→   344→    sessionsTotal: basic.sessionsCount,
+   345→   345→    sessionsUsed: 2,
+   346→   346→    startedAtUtc: daysFromNow(-4),
+   347→   347→    expiresAtUtc: daysFromNow(-4 + basic.durationDays),
+   348→   348→    status: "Active",
+   349→   349→    pricePaidToman: basic.priceToman,
+   350→   350→    memberCode: sara.code,
+   351→   351→    memberFullName: sara.fullName,
+   352→   352→    packageNameEn: basic.nameEn,
+   353→   353→    packageNameFa: basic.nameFa,
+   354→   354→    branchNameEn: "South Branch",
+   355→   355→    branchNameFa: "شعبه جنوب",
+   356→   356→    isExpired: false,
+   357→   357→    freezes: [],
+   358→   358→    refund: null,
+   359→   359→  });
+   360→   360→  db.receipts.push({
+   361→   361→    id: uid(),
+   362→   362→    memberId: sara.id,
+   363→   363→    branchId: south,
+   364→   364→    memberPackageId: saraBasicId,
+   365→   365→    kind: "PackagePurchase",
+   366→   366→    paymentMethod: "Cash",
+   367→   367→    amountToman: basic.priceToman,
+   368→   368→    note: null,
+   369→   369→    createdAtUtc: daysFromNow(-4),
+   370→   370→    memberCode: sara.code,
+   371→   371→    memberFullName: sara.fullName,
+   372→   372→    branchNameEn: "South Branch",
+   373→   373→    branchNameFa: "شعبه جنوب",
+   374→   374→    packageNameEn: basic.nameEn,
+   375→   375→    packageNameFa: basic.nameFa,
+   376→   376→  });
+   377→   377→
+   378→   378→  // 3) Reza — VIP @ South, cash, FROZEN 2 days ago (used 5/12)
+   379→   379→  const rezaVipId = uid();
+   380→   380→  db.memberPackages.push({
+   381→   381→    id: rezaVipId,
+   382→   382→    memberId: reza.id,
+   383→   383→    packageId: vip.id,
+   384→   384→    branchId: south,
+   385→   385→    sessionsTotal: vip.sessionsCount,
+   386→   386→    sessionsUsed: 5,
+   387→   387→    startedAtUtc: daysFromNow(-20),
+   388→   388→    expiresAtUtc: daysFromNow(-20 + vip.durationDays),
+   389→   389→    status: "Frozen",
+   390→   390→    pricePaidToman: vip.priceToman,
+   391→   391→    memberCode: reza.code,
+   392→   392→    memberFullName: reza.fullName,
+   393→   393→    packageNameEn: vip.nameEn,
+   394→   394→    packageNameFa: vip.nameFa,
+   395→   395→    branchNameEn: "South Branch",
+   396→   396→    branchNameFa: "شعبه جنوب",
+   397→   397→    isExpired: false,
+   398→   398→    freezes: [],
+   399→   399→    refund: null,
+   400→   400→  });
+   401→   401→  db.receipts.push({
+   402→   402→    id: uid(),
+   403→   403→    memberId: reza.id,
+   404→   404→    branchId: south,
+   405→   405→    memberPackageId: rezaVipId,
+   406→   406→    kind: "PackagePurchase",
+   407→   407→    paymentMethod: "Cash",
+   408→   408→    amountToman: vip.priceToman,
+   409→   409→    note: null,
+   410→   410→    createdAtUtc: daysFromNow(-20),
+   411→   411→    memberCode: reza.code,
+   412→   412→    memberFullName: reza.fullName,
+   413→   413→    branchNameEn: "South Branch",
+   414→   414→    branchNameFa: "شعبه جنوب",
+   415→   415→    packageNameEn: vip.nameEn,
+   416→   416→    packageNameFa: vip.nameFa,
+   417→   417→  });
+   418→   418→
+   419→   419→  // 4) Maryam — VIP @ North, cash, Active (used 3/12)
+   420→   420→  const maryamVipId = uid();
+   421→   421→  db.memberPackages.push({
+   422→   422→    id: maryamVipId,
+   423→   423→    memberId: maryam.id,
+   424→   424→    packageId: vip.id,
+   425→   425→    branchId: north,
+   426→   426→    sessionsTotal: vip.sessionsCount,
+   427→   427→    sessionsUsed: 3,
+   428→   428→    startedAtUtc: daysFromNow(-10),
+   429→   429→    expiresAtUtc: daysFromNow(-10 + vip.durationDays),
+   430→   430→    status: "Active",
+   431→   431→    pricePaidToman: vip.priceToman,
+   432→   432→    memberCode: maryam.code,
+   433→   433→    memberFullName: maryam.fullName,
+   434→   434→    packageNameEn: vip.nameEn,
+   435→   435→    packageNameFa: vip.nameFa,
+   436→   436→    branchNameEn: "North Branch",
+   437→   437→    branchNameFa: "شعبه شمال",
+   438→   438→    isExpired: false,
+   439→   439→    freezes: [],
+   440→   440→    refund: null,
+   441→   441→  });
+   442→   442→  db.receipts.push({
+   443→   443→    id: uid(),
+   444→   444→    memberId: maryam.id,
+   445→   445→    branchId: north,
+   446→   446→    memberPackageId: maryamVipId,
+   447→   447→    kind: "PackagePurchase",
+   448→   448→    paymentMethod: "Cash",
+   449→   449→    amountToman: vip.priceToman,
+   450→   450→    note: null,
+   451→   451→    createdAtUtc: daysFromNow(-10),
+   452→   452→    memberCode: maryam.code,
+   453→   453→    memberFullName: maryam.fullName,
+   454→   454→    branchNameEn: "North Branch",
+   455→   455→    branchNameFa: "شعبه شمال",
+   456→   456→    packageNameEn: vip.nameEn,
+   457→   457→    packageNameFa: vip.nameFa,
+   458→   458→  });
+   459→   459→
+   460→   460→  // 5) Ali — Basic @ South, cash, REFUNDED (pro-rata 5/8 = 750,000)
+   461→   461→  const aliBasicId = uid();
+   462→   462→  const refundAmount = Math.floor((basic.priceToman * (basic.sessionsCount - 3)) / basic.sessionsCount);
+   463→   463→  db.memberPackages.push({
+   464→   464→    id: aliBasicId,
+   465→   465→    memberId: ali.id,
+   466→   466→    packageId: basic.id,
+   467→   467→    branchId: south,
+   468→   468→    sessionsTotal: basic.sessionsCount,
+   469→   469→    sessionsUsed: 3,
+   470→   470→    startedAtUtc: daysFromNow(-40),
+   471→   471→    expiresAtUtc: daysFromNow(-40 + basic.durationDays),
+   472→   472→    status: "Refunded",
+   473→   473→    pricePaidToman: basic.priceToman,
+   474→   474→    memberCode: ali.code,
+   475→   475→    memberFullName: ali.fullName,
+   476→   476→    packageNameEn: basic.nameEn,
+   477→   477→    packageNameFa: basic.nameFa,
+   478→   478→    branchNameEn: "South Branch",
+   479→   479→    branchNameFa: "شعبه جنوب",
+   480→   480→    isExpired: true,
+   481→   481→    freezes: [],
+   482→   482→    refund: null,
+   483→   483→  });
+   484→   484→  db.receipts.push(
+   485→   485→    {
+   486→   486→      id: uid(),
+   487→   487→      memberId: ali.id,
+   488→   488→      branchId: south,
+   489→   489→      memberPackageId: aliBasicId,
+   490→   490→      kind: "PackagePurchase",
+   491→   491→      paymentMethod: "Cash",
+   492→   492→      amountToman: basic.priceToman,
+   493→   493→      note: null,
+   494→   494→      createdAtUtc: daysFromNow(-40),
+   495→   495→      memberCode: ali.code,
+   496→   496→      memberFullName: ali.fullName,
+   497→   497→      branchNameEn: "South Branch",
+   498→   498→      branchNameFa: "شعبه جنوب",
+   499→   499→      packageNameEn: basic.nameEn,
+   500→   500→      packageNameFa: basic.nameFa,
+   501→   501→    },
+   502→   502→    {
+   503→   503→      id: uid(),
+   504→   504→      memberId: ali.id,
+   505→   505→      branchId: south,
+   506→   506→      memberPackageId: aliBasicId,
+   507→   507→      kind: "PackageRefund",
+   508→   508→      paymentMethod: "Cash",
+   509→   509→      amountToman: refundAmount,
+   510→   510→      note: "Member relocated (seed).",
+   511→   511→      createdAtUtc: daysFromNow(-38),
+   512→   512→      memberCode: ali.code,
+   513→   513→      memberFullName: ali.fullName,
+   514→   514→      branchNameEn: "South Branch",
+   515→   515→      branchNameFa: "شعبه جنوب",
+   516→   516→      packageNameEn: basic.nameEn,
+   517→   517→      packageNameFa: basic.nameFa,
+   518→   518→    },
+   519→   519→  );
+   520→   520→
+   521→   521→  // freeze + refund audit rows (queried via the package-detail endpoint)
+   522→   522→  const rezaVip = db.memberPackages.find((mp) => mp.id === rezaVipId)!;
+   523→   523→  rezaVip.freezes = [{ id: uid(), frozenAtUtc: daysFromNow(-2), unfrozenAtUtc: null, frozenDays: null }];
+   524→   524→  rezaVip.refund = null;
+   525→   525→  const aliBasic = db.memberPackages.find((mp) => mp.id === aliBasicId)!;
+   526→   526→  aliBasic.freezes = [];
+   527→   527→  aliBasic.refund = {
+   528→   528→    id: uid(),
+   529→   529→    amountToman: refundAmount,
+   530→   530→    reason: "Member relocated (seed).",
+   531→   531→    refundedAtUtc: daysFromNow(-38),
+   532→   532→  };
+   533→   533→}
+   534→   534→
+   535→   535→// ---------------------------------------------------------------- Phase 5 demo seeds (mirror of the top-up endpoint flow)
+   536→   536→
+   537→   537→function seedDemoWallet(db: DemoDb): void {
+   538→   538→  const south = db.branches.find((b) => b.nameEn === "South Branch")!;
+   539→   539→  const sara = db.members.find((m) => m.code === "M-00002")!;
+   540→   540→  const account = db.walletAccounts.find((a) => a.memberId === sara.id);
+   541→   541→  if (!account) {
+   542→   542→    return;
+   543→   543→  }
+   544→   544→
+   545→   545→  // A desk top-up from yesterday: ledger row + TopUp receipt, BalanceAfter exact.
+   546→   546→  const amount = 2_000_000;
+   547→   547→  const at = daysFromNow(-1);
+   548→   548→  account.balanceToman += amount;
+   549→   549→  const receiptId = uid();
+   550→   550→  db.receipts.push({
+   551→   551→    id: receiptId,
+   552→   552→    memberId: sara.id,
+   553→   553→    branchId: south.id,
+   554→   554→    memberPackageId: null,
+   555→   555→    kind: "TopUp",
+   556→   556→    paymentMethod: "Cash",
+   557→   557→    amountToman: amount,
+   558→   558→    note: "Desk top-up (seed).",
+   559→   559→    createdAtUtc: at,
+   560→   560→    memberCode: sara.code,
+   561→   561→    memberFullName: sara.fullName,
+   562→   562→    branchNameEn: south.nameEn,
+   563→   563→    branchNameFa: south.nameFa,
+   564→   564→    packageNameEn: "—",
+   565→   565→    packageNameFa: "—",
+   566→   566→  });
+   567→   567→  db.walletTransactions.push({
+   568→   568→    id: uid(),
+   569→   569→    walletAccountId: account.id,
+   570→   570→    amountToman: amount,
+   571→   571→    kind: "TopUp",
+   572→   572→    balanceAfter: account.balanceToman,
+   573→   573→    relatedReceiptId: receiptId,
+   574→   574→    note: "Desk top-up (seed).",
+   575→   575→    createdAtUtc: at,
+   576→   576→  });
+   577→   577→}
+   578→   578→
+   579→   579→// ---------------------------------------------------------------- Phase 4 demo seeds (mirror of AttendanceSeeder)
+   580→   580→
+   581→   581→const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
+   582→   582→
+   583→   583→function seedDemoAttendance(db: DemoDb): void {
+   584→   584→  const north = db.branches.find((b) => b.nameEn === "North Branch")!.id;
+   585→   585→  const south = db.branches.find((b) => b.nameEn === "South Branch")!.id;
+   586→   586→  const memberByCard = (card: string) => db.members.find((m) => m.cardCode === card)!;
+   587→   587→
+   588→   588→  const ali = memberByCard("RF-0001");
+   589→   589→  const sara = memberByCard("RF-0002");
+   590→   590→  const maryam = memberByCard("RF-0004");
+   591→   591→
+   592→   592→  // Active member packages (mirrors the backend resolving through the Sales contract).
+   593→   593→  const usable = (memberId: string, branchId: string) =>
+   594→   594→    db.memberPackages.find(
+   595→   595→      (mp) =>
+   596→   596→        mp.memberId === memberId &&
+   597→   597→        mp.status === "Active" &&
+   598→   598→        mp.expiresAtUtc > new Date().toISOString() &&
+   599→   599→        mp.sessionsUsed < mp.sessionsTotal &&
+   600→   600→        mp.branchId === branchId,
+   601→   601→    );
+   602→   602→
+   603→   603→  const maryamVip = usable(maryam.id, north);
+   604→   604→  const saraBasic = usable(sara.id, south);
+   605→   605→  const aliVip = usable(ali.id, north);
+   606→   606→  const aliBasicSouth = db.memberPackages.find((mp) => mp.memberId === ali.id && mp.branchId === south);
+   607→   607→
+   608→   608→  const toEntry = (
+   609→   609→    member: Member,
+   610→   610→    mp: DemoMemberPackageRecord,
+   611→   611→    branchId: string,
+   612→   612→    branchNameEn: string,
+   613→   613→    branchNameFa: string,
+   614→   614→    checkInAtUtc: string,
+   615→   615→    checkOutAtUtc: string | null,
+   616→   616→  ): DemoAttendanceRecord => {
+   617→   617→    const endMs = checkOutAtUtc ? new Date(checkOutAtUtc).getTime() : Date.now();
+   618→   618→    return {
+   619→   619→      id: uid(),
+   620→   620→      memberId: member.id,
+   621→   621→      memberPackageId: mp.id,
+   622→   622→      branchId,
+   623→   623→      checkInAtUtc,
+   624→   624→      checkOutAtUtc,
+   625→   625→      durationMinutes: Math.max(0, Math.floor((endMs - new Date(checkInAtUtc).getTime()) / 60_000)),
+   626→   626→      isPresent: checkOutAtUtc === null,
+   627→   627→      memberCode: member.code,
+   628→   628→      memberFullName: member.fullName,
+   629→   629→      packageNameEn: mp.packageNameEn,
+   630→   630→      packageNameFa: mp.packageNameFa,
+   631→   631→      branchNameEn,
+   632→   632→      branchNameFa,
+   633→   633→      sessionsTotal: mp.sessionsTotal,
+   634→   634→      sessionsUsed: mp.sessionsUsed,
+   635→   635→      sessionsRemaining: Math.max(0, mp.sessionsTotal - mp.sessionsUsed),
+   636→   636→    };
+   637→   637→  };
+   638→   638→
+   639→   639→  // 1) Maryam — IN THE GYM NOW @ North (open entry, 35 min)
+   640→   640→  if (maryamVip) {
+   641→   641→    db.attendance.push(toEntry(maryam, maryamVip, north, "North Branch", "شعبه شمال", minutesAgo(35), null));
+   642→   642→  }
+   643→   643→
+   644→   644→  // 2) Sara — IN THE GYM NOW @ South (open entry, 12 min)
+   645→   645→  if (saraBasic) {
+   646→   646→    db.attendance.push(toEntry(sara, saraBasic, south, "South Branch", "شعبه جنوب", minutesAgo(12), null));
+   647→   647→  }
+   648→   648→
+   649→   649→  // 3) Ali — visited yesterday @ North (closed)
+   650→   650→  if (aliVip) {
+   651→   651→    db.attendance.push(
+   652→   652→      toEntry(ali, aliVip, north, "North Branch", "شعبه شمال", minutesAgo(26 * 60), minutesAgo(24 * 60)),
+   653→   653→    );
+   654→   654→  }
+   655→   655→
+   656→   656→  // 4) Ali — visited 3 days ago @ South on Basic (closed)
+   657→   657→  if (aliBasicSouth) {
+   658→   658→    db.attendance.push(
+   659→   659→      toEntry(ali, aliBasicSouth, south, "South Branch", "شعبه جنوب", minutesAgo(74 * 60), minutesAgo(72 * 60)),
+   660→   660→    );
+   661→   661→  }
+   662→   662→}
+   663→   663→
+   664→   664→export function loadDb(): DemoDb {
+   665→   665→  if (typeof window === "undefined") throw new Error("demo store requires a browser");
+   666→   666→  const raw = window.localStorage.getItem(DB_KEY);
+   667→   667→  if (!raw) {
+   668→   668→    const db = seedDb();
+   669→   669→    window.localStorage.setItem(DB_KEY, JSON.stringify(db));
+   670→   670→    return db;
+   671→   671→  }
+   672→   672→  try {
+   673→   673→    return JSON.parse(raw) as DemoDb;
+   674→   674→  } catch {
+   675→   675→    const db = seedDb();
+   676→   676→    window.localStorage.setItem(DB_KEY, JSON.stringify(db));
+   677→   677→    return db;
+   678→   678→  }
+   679→   679→}
+   680→   680→
+   681→   681→export function saveDb(db: DemoDb): void {
+   682→   682→  window.localStorage.setItem(DB_KEY, JSON.stringify(db));
+   683→   683→}
+   684→   684→
+   685→   685→export function resetDemoDb(): void {
+   686→   686→  window.localStorage.removeItem(DB_KEY);
+   687→   687→  window.localStorage.removeItem("gms.session");
+   688→   688→}
+   689→   689→
+   690→   690→export const wait = (ms = 220) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+   691→   691→
+   692→   692→// ---------------------------------------------------------------- errors (ProblemDetails-like)
+   693→   693→
+   694→   694→export class GmsApiError extends Error {
+   695→   695→  status: number;
+   696→   696→  errorCode: string;
+   697→   697→  fieldErrors: Record<string, string[]>;
+   698→   698→
+   699→   699→  constructor(status: number, errorCode: string, message: string, fieldErrors?: Record<string, string[]>) {
+   700→   700→    super(message);
+   701→   701→    this.status = status;
+   702→   702→    this.errorCode = errorCode;
+   703→   703→    this.fieldErrors = fieldErrors ?? {};
+   704→   704→  }
+   705→   705→}
+   706→   706→
+   707→   707→// ---------------------------------------------------------------- identity
+   708→   708→
+   709→   709→export async function demoLogin(username: string, password: string): Promise<LoginResponse> {
+   710→   710→  await wait();
+   711→   711→  const db = loadDb();
+   712→   712→  const user = db.users.find((u) => u.username === username.trim().toLowerCase());
+   713→   713→  if (!user || user.password !== password) {
+   714→   714→    throw new GmsApiError(401, "identity.invalid_credentials", "Invalid username or password.");
+   715→   715→  }
+   716→   716→  return {
+   717→   717→    accessToken: `demo.${btoa(unescape(encodeURIComponent(user.id)))}.${Date.now() + SESSION_TTL_MS}.sig`,
+   718→   718→    expiresInSeconds: SESSION_TTL_MS / 1000,
+   719→   719→    user: { id: user.id, username: user.username, displayName: user.displayName, role: user.role, branchId: user.branchId ?? null },
+   720→   720→  };
+   721→   721→}
+   722→   722→
+   723→   723→// ---------------------------------------------------------------- branches / catalog
+   724→   724→
+   725→   725→export async function demoListBranches(): Promise<Branch[]> {
+   726→   726→  await wait(120);
+   727→   727→  return loadDb().branches.filter((b) => b.isActive);
+   728→   728→}
+   729→   729→
+   730→   730→export async function demoListPackages(): Promise<ExercisePackage[]> {
+   731→   731→  await wait(140);
+   732→   732→  return loadDb().packages;
+   733→   733→}
+   734→   734→
+   735→   735→export async function demoListProducts(branchId?: string): Promise<BuffetProduct[]> {
+   736→   736→  await wait(140);
+   737→   737→  const products = loadDb().products;
+   738→   738→  return branchId ? products.filter((p) => p.prices.some((pr) => pr.branchId === branchId)) : products;
+   739→   739→}
+   740→   740→
+   741→   741→// ---------------------------------------------------------------- members (Phase 2)
+   742→   742→
+   743→   743→function nextMemberCode(members: Member[]): string {
+   744→   744→  const max = members.reduce((acc, m) => {
+   745→   745→    const suffix = m.code.startsWith("M-") ? Number.parseInt(m.code.slice(2), 10) : Number.NaN;
+   746→   746→    return Number.isFinite(suffix) && suffix > acc ? suffix : acc;
+   747→   747→  }, 0);
+   748→   748→  return `M-${String(max + 1).padStart(5, "0")}`;
+   749→   749→}
+   750→   750→
+   751→   751→function duplicateFieldErrors(db: DemoDb, phone: string | null | undefined, card: string | null | undefined, excludeId?: string) {
+   752→   752→  const errors: Record<string, string[]> = {};
+   753→   753→  if (phone && db.members.some((m) => m.phoneNumber === phone && m.id !== excludeId)) {
+   754→   754→    errors.phoneNumber = [`Phone number ${phone} is already registered to another member.`];
+   755→   755→  }
+   756→   756→  if (card && db.members.some((m) => m.cardCode === card && m.id !== excludeId)) {
+   757→   757→    errors.cardCode = [`Card ${card} is already assigned to another member.`];
+   758→   758→  }
+   759→   759→  return errors;
+   760→   760→}
+   761→   761→
+   762→   762→export async function demoSearchMembers(query: MemberQuery): Promise<PagedResult<Member>> {
+   763→   763→  await wait(180);
+   764→   764→  const db = loadDb();
+   765→   765→  const page = query.page && query.page > 0 ? query.page : 1;
+   766→   766→  const pageSize = query.pageSize && query.pageSize > 0 ? Math.min(query.pageSize, 100) : 20;
+   767→   767→
+   768→   768→  const term = query.search?.trim().toLowerCase() ?? "";
+   769→   769→  let items = [...db.members];
+   770→   770→
+   771→   771→  if (term) {
+   772→   772→    items = items.filter(
+   773→   773→      (m) =>
+   774→   774→        m.fullName.toLowerCase().includes(term) ||
+   775→   775→        m.code.toLowerCase().includes(term) ||
+   776→   776→        (m.phoneNumber ?? "").includes(term) ||
+   777→   777→        (m.cardCode ?? "").toLowerCase().includes(term),
+   778→   778→    );
+   779→   779→  }
+   780→   780→  if (query.status) {
+   781→   781→    items = items.filter((m) => m.status === query.status);
+   782→   782→  }
+   783→   783→  if (query.branchId) {
+   784→   784→    items = items.filter((m) => m.homeBranchId === query.branchId);
+   785→   785→  }
+   786→   786→
+   787→   787→  items.sort((a, b) => (a.joinDateUtc < b.joinDateUtc ? 1 : -1));
+   788→   788→  const totalCount = items.length;
+   789→   789→  const paged = items.slice((page - 1) * pageSize, page * pageSize);
+   790→   790→  return { items: paged, page, pageSize, totalCount };
+   791→   791→}
+   792→   792→
+   793→   793→export async function demoGetMember(id: string): Promise<Member> {
+   794→   794→  await wait(120);
+   795→   795→  const member = loadDb().members.find((m) => m.id === id);
+   796→   796→  if (!member) throw new GmsApiError(404, "member.not_found", "Member not found.");
+   797→   797→  return member;
+   798→   798→}
+   799→   799→
+   800→   800→export async function demoCreateMember(model: MemberWriteModel): Promise<Member> {
+   801→   801→  await wait(260);
+   802→   802→  const db = loadDb();
+   803→   803→
+   804→   804→  const errors: Record<string, string[]> = {};
+   805→   805→  if (!model.fullName.trim()) errors.fullName = ["Full name is required."];
+   806→   806→  if (!model.homeBranchId || !db.branches.some((b) => b.id === model.homeBranchId && b.isActive)) {
+   807→   807→    errors.homeBranchId = ["Unknown or inactive branch."];
+   808→   808→  }
+   809→   809→  Object.assign(errors, duplicateFieldErrors(db, model.phoneNumber?.trim() || null, model.cardCode?.trim() || null));
+   810→   810→  if (Object.keys(errors).length > 0) {
+   811→   811→    throw new GmsApiError(400, "validation.failed", "One or more validation errors occurred.", errors);
+   812→   812→  }
+   813→   813→
+   814→   814→  const member: Member = {
+   815→   815→    id: uid(),
+   816→   816→    code: nextMemberCode(db.members),
+   817→   817→    fullName: model.fullName.trim(),
+   818→   818→    phoneNumber: model.phoneNumber?.trim() || null,
+   819→   819→    gender: model.gender ?? "Unknown",
+   820→   820→    birthDateUtc: model.birthDate ? new Date(model.birthDate).toISOString() : null,
+   821→   821→    joinDateUtc: new Date().toISOString(),
+   822→   822→    homeBranchId: model.homeBranchId,
+   823→   823→    cardCode: model.cardCode?.trim() || null,
+   824→   824→    status: "Active",
+   825→   825→    notes: model.notes?.trim() || null,
+   826→   826→  };
+   827→   827→  db.members.push(member);
+   828→   828→  saveDb(db);
+   829→   829→  return member;
+   830→   830→}
+   831→   831→
+   832→   832→export async function demoUpdateMember(id: string, model: MemberWriteModel): Promise<Member> {
+   833→   833→  await wait(260);
+   834→   834→  const db = loadDb();
+   835→   835→  const member = db.members.find((m) => m.id === id);
+   836→   836→  if (!member) throw new GmsApiError(404, "member.not_found", "Member not found.");
+   837→   837→
+   838→   838→  const errors: Record<string, string[]> = {};
+   839→   839→  if (!model.fullName.trim()) errors.fullName = ["Full name is required."];
+   840→   840→  if (!model.homeBranchId || !db.branches.some((b) => b.id === model.homeBranchId && b.isActive)) {
+   841→   841→    errors.homeBranchId = ["Unknown or inactive branch."];
+   842→   842→  }
+   843→   843→  Object.assign(
+   844→   844→    errors,
+   845→   845→    duplicateFieldErrors(db, model.phoneNumber?.trim() || null, model.cardCode?.trim() || null, id),
+   846→   846→  );
+   847→   847→  if (Object.keys(errors).length > 0) {
+   848→   848→    throw new GmsApiError(400, "validation.failed", "One or more validation errors occurred.", errors);
+   849→   849→  }
+   850→   850→
+   851→   851→  member.fullName = model.fullName.trim();
+   852→   852→  member.phoneNumber = model.phoneNumber?.trim() || null;
+   853→   853→  member.gender = model.gender ?? "Unknown";
+   854→   854→  member.birthDateUtc = model.birthDate ? new Date(model.birthDate).toISOString() : null;
+   855→   855→  member.homeBranchId = model.homeBranchId;
+   856→   856→  member.cardCode = model.cardCode?.trim() || null;
+   857→   857→  member.notes = model.notes?.trim() || null;
+   858→   858→  saveDb(db);
+   859→   859→  return member;
+   860→   860→}
+   861→   861→
+   862→   862→export async function demoSetMemberStatus(id: string, status: MemberStatus): Promise<Member> {
+   863→   863→  await wait(180);
+   864→   864→  const db = loadDb();
+   865→   865→  const member = db.members.find((m) => m.id === id);
+   866→   866→  if (!member) throw new GmsApiError(404, "member.not_found", "Member not found.");
+   867→   867→  member.status = status;
+   868→   868→  saveDb(db);
+   869→   869→  return member;
+   870→   870→}
+   871→   871→

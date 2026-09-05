@@ -20,7 +20,7 @@ import type {
   WalletTransaction,
 } from "./types";
 
-const DB_KEY = "gms.demo.db.v5";
+const DB_KEY = "gms.demo.db.v6";
 const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
 
 interface DemoUser {
@@ -50,6 +50,42 @@ export type DemoWalletTransaction = WalletTransaction & { walletAccountId: strin
 /** Attendance entry stored fully enriched (the demo resolves names at read time). */
 export type DemoAttendanceRecord = AttendanceEntry;
 
+/** Coaching raw rows (Phase 6) — names are re-resolved at read time, mirroring the backend enrichment. */
+export interface DemoCoachAssignmentRecord {
+  id: string;
+  coachId: string;
+  memberId: string;
+  branchId: string;
+  assignedAtUtc: string;
+  releasedAtUtc: string | null;
+  note: string | null;
+}
+
+export interface DemoTrainingPlanRecord {
+  id: string;
+  coachId: string;
+  memberId: string;
+  title: string;
+  goal: string | null;
+  content: string;
+  isActive: boolean;
+  archivedAtUtc: string | null;
+  createdAtUtc: string;
+}
+
+export interface DemoTrainingRecordRecord {
+  id: string;
+  coachId: string;
+  memberId: string;
+  trainingPlanId: string | null;
+  branchId: string;
+  performedAtUtc: string;
+  summary: string;
+  durationMinutes: number | null;
+  intensity: "Low" | "Medium" | "High" | null;
+  note: string | null;
+}
+
 interface DemoDb {
   seededAt: string;
   users: DemoUser[];
@@ -62,6 +98,9 @@ interface DemoDb {
   walletAccounts: DemoWalletAccount[];
   walletTransactions: DemoWalletTransaction[];
   attendance: DemoAttendanceRecord[];
+  coachAssignments: DemoCoachAssignmentRecord[];
+  trainingPlans: DemoTrainingPlanRecord[];
+  trainingRecords: DemoTrainingRecordRecord[];
 }
 
 export const uid = () =>
@@ -193,6 +232,7 @@ function seedDb(): DemoDb {
       { id: uid(), username: "reception.south", password: "Operator@123", displayName: "پذیرش — شعبه جنوب", role: "reception", branchId: southId },
       { id: uid(), username: "buffet.north", password: "Operator@123", displayName: "بوفه — شعبه شمال", role: "buffet", branchId: northId },
       { id: uid(), username: "coach.north", password: "Operator@123", displayName: "مربی — شعبه شمال", role: "coach", branchId: northId },
+      { id: uid(), username: "coach.south", password: "Operator@123", displayName: "مربی — شعبه جنوب", role: "coach", branchId: southId },
     ],
     branches: [
       { id: northId, nameEn: "North Branch", nameFa: "شعبه شمال", city: "تهران", phoneNumber: "021-22000001", isActive: true },
@@ -206,11 +246,15 @@ function seedDb(): DemoDb {
     walletAccounts: [],
     walletTransactions: [],
     attendance: [],
+    coachAssignments: [],
+    trainingPlans: [],
+    trainingRecords: [],
   };
 
   seedDemoSales(db);
   seedDemoAttendance(db);
   seedDemoWallet(db);
+  seedDemoCoaching(db);
   return db;
 }
 
@@ -532,7 +576,161 @@ function seedDemoSales(db: DemoDb): void {
   };
 }
 
-// ---------------------------------------------------------------- Phase 5 demo seeds (mirror of the top-up endpoint flow)
+// ---------------------------------------------------------------- Phase 6 demo seeds (mirror of CoachingSeeder)
+
+function seedDemoCoaching(db: DemoDb): void {
+  const north = db.branches.find((b) => b.nameEn === "North Branch")!.id;
+  const south = db.branches.find((b) => b.nameEn === "South Branch")!.id;
+  const coachNorth = db.users.find((u) => u.role === "coach" && u.username === "coach.north");
+  const coachSouth = db.users.find((u) => u.role === "coach" && u.username === "coach.south");
+  if (!coachNorth) return;
+
+  const ali = db.members.find((m) => m.code === "M-00001");
+  const sara = db.members.find((m) => m.code === "M-00002");
+  const maryam = db.members.find((m) => m.code === "M-00004");
+  if (!ali || !sara || !maryam) return;
+
+  // 1. coach.north → Ali @ North (active)
+  db.coachAssignments.push({
+    id: uid(),
+    coachId: coachNorth.id,
+    memberId: ali.id,
+    branchId: north,
+    assignedAtUtc: daysFromNow(-21),
+    releasedAtUtc: null,
+    note: "Strength focus — 3 sessions / week.",
+  });
+
+  // 2. coach.north → Maryam @ North (active)
+  db.coachAssignments.push({
+    id: uid(),
+    coachId: coachNorth.id,
+    memberId: maryam.id,
+    branchId: north,
+    assignedAtUtc: daysFromNow(-10),
+    releasedAtUtc: null,
+    note: "Postpartum comeback — light intensity.",
+  });
+
+  // 3. coach.south → Sara @ South (released — history demo)
+  if (coachSouth) {
+    db.coachAssignments.push({
+      id: uid(),
+      coachId: coachSouth.id,
+      memberId: sara.id,
+      branchId: south,
+      assignedAtUtc: daysFromNow(-30),
+      releasedAtUtc: daysFromNow(-12),
+      note: "Moved to the North site (seed).",
+    });
+  }
+
+  // Plans: Ali's month-1 plan is archived by his month-2 plan (exactly one active per pair).
+  const aliPlanV1Id = uid();
+  const aliPlanV2Id = uid();
+  db.trainingPlans.push(
+    {
+      id: aliPlanV1Id,
+      coachId: coachNorth.id,
+      memberId: ali.id,
+      title: "Hypertrophy — Month 1",
+      goal: "Add 2kg lean mass; fix squat depth.",
+      content:
+        "Mon — Upper push: bench 4×8, incline DB 3×10, dips 3×8.\nWed — Lower: squat 5×5 @ 80kg, RDL 3×10, calf raises 4×15.\nFri — Upper pull: rows 4×8, lat pulldown 3×10, face pulls 3×15.\nProgression: +2.5kg when all sets hit target reps.",
+      isActive: false,
+      archivedAtUtc: daysFromNow(-7),
+      createdAtUtc: daysFromNow(-21),
+    },
+    {
+      id: aliPlanV2Id,
+      coachId: coachNorth.id,
+      memberId: ali.id,
+      title: "Hypertrophy — Month 2",
+      goal: "Push squat to 90kg; add pull-up volume.",
+      content:
+        "Mon — Upper push: bench 5×5, OH press 3×8, dips 3×10.\nWed — Lower: squat 5×5 @ 85kg, front squat 3×8, hip thrust 3×10.\nFri — Upper pull: weighted pull-ups 5×5, rows 4×10, curls 3×12.\nProgression: linear +2.5kg/week on the big lifts.",
+      isActive: true,
+      archivedAtUtc: null,
+      createdAtUtc: daysFromNow(-7),
+    },
+    {
+      id: uid(),
+      coachId: coachNorth.id,
+      memberId: maryam.id,
+      title: "Foundation — Mobility & Core",
+      goal: "Rebuild core stability; pain-free full range.",
+      content:
+        "Tue — Mobility flow 20' + dead bug 3×10, bird dog 3×10.\nThu — Goblet squat 3×12, band rows 3×15, plank 3×30s.\nSat — Walk 30' + stretching.\nRule: stop before form breaks; no max loads this month.",
+      isActive: true,
+      archivedAtUtc: null,
+      createdAtUtc: daysFromNow(-9),
+    },
+  );
+
+  // Records: sessions the assigned members actually did (2 of them within the last 7 days for the KPI).
+  db.trainingRecords.push(
+    {
+      id: uid(),
+      coachId: coachNorth.id,
+      memberId: ali.id,
+      trainingPlanId: aliPlanV2Id,
+      branchId: north,
+      performedAtUtc: daysFromNow(-2),
+      summary: "Lower — squat 5×5 @ 85kg (all clean), RDL 3×10 @ 70kg.",
+      durationMinutes: 55,
+      intensity: "High",
+      note: null,
+    },
+    {
+      id: uid(),
+      coachId: coachNorth.id,
+      memberId: ali.id,
+      trainingPlanId: aliPlanV2Id,
+      branchId: north,
+      performedAtUtc: daysFromNow(-4),
+      summary: "Upper pull — weighted pull-up 5×5 +10kg, rows 4×10.",
+      durationMinutes: 50,
+      intensity: "Medium",
+      note: null,
+    },
+    {
+      id: uid(),
+      coachId: coachNorth.id,
+      memberId: ali.id,
+      trainingPlanId: aliPlanV1Id,
+      branchId: north,
+      performedAtUtc: daysFromNow(-9),
+      summary: "Month 1 test day — squat 80kg 5×5, depth fixed.",
+      durationMinutes: 60,
+      intensity: "Medium",
+      note: "Followed the archived month-1 plan.",
+    },
+    {
+      id: uid(),
+      coachId: coachNorth.id,
+      memberId: maryam.id,
+      trainingPlanId: db.trainingPlans.find((p) => p.memberId === maryam.id)?.id ?? null,
+      branchId: north,
+      performedAtUtc: daysFromNow(-1),
+      summary: "Mobility + core — plank 3×30s, pain-free.",
+      durationMinutes: 40,
+      intensity: "Low",
+      note: null,
+    },
+    {
+      id: uid(),
+      coachId: coachNorth.id,
+      memberId: maryam.id,
+      trainingPlanId: db.trainingPlans.find((p) => p.memberId === maryam.id)?.id ?? null,
+      branchId: north,
+      performedAtUtc: daysFromNow(-3),
+      summary: "Goblet squat 3×12 @ 8kg, band rows 3×15.",
+      durationMinutes: 35,
+      intensity: "Low",
+      note: null,
+    },
+  );
+}
 
 function seedDemoWallet(db: DemoDb): void {
   const south = db.branches.find((b) => b.nameEn === "South Branch")!;

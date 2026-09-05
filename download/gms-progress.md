@@ -1,10 +1,11 @@
 # GMS Progress Tracker
 
-Weighted total: **▓▓▓▓▓▓▓▓▓▓▓▓▓░░░░░░░░ 65%**
+Weighted total: **▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░░░░ 75%**
 
-> Updated: 2026-09-05 — Phase 5 (Wallet) delivered end-to-end and browser-verified.
-> Top-up receipts make `Receipt` the universal money document; the ledger keeps the
-> `BalanceAfter` invariant on every row and reconciles with the receipts list 1:1.
+> Updated: 2026-09-05 — Phase 6 (Coaching) delivered end-to-end and browser-verified.
+> Coach–member assignments gate plans and records; a new plan auto-archives the previous
+> active one; coaches see a fully scoped workspace (own rows, own branch, presence badges
+> via the Attendance contract).
 
 ## Phase 0 — Solution skeleton (8%) ✅ rebuilt
 - [x] `Gms.sln` + BuildingBlocks + Api host + 9 modules with `.Public` contract projects
@@ -55,8 +56,14 @@ Weighted total: **▓▓▓▓▓▓▓▓▓▓▓▓▓░░░░░░░�
 - [x] Frontend: Wallet workspace (stat chips accounts/total-balance, Accounts tab paged+search, Ledger tab with member chip + kind filter + signed colored amounts + BalanceAfter column + pager), Top-up dialog (member search, branch pinned/picker, quick amount chips, note, inline success with new balance), member sheet wallet card (balance + last 3 rows + top-up shortcut), receipts tab TopUp rows, nav "wallet" (admin+reception), dashboard phase note → wallet; fa/en + RTL + Jalali
 - [x] Verified: eslint/tsc/next build clean; browser E2E — top-up +1.5M → balance 2.5M exact, ledger BalanceAfter chain (3M→5M Sara, 1M→2.5M Maryam), receipts show TopUp rows with "—", total balance KPI 10.5M = Σ balances, EN/LTR + mobile 390px; zero console errors
 
-## Phase 6 — Coaching (10%) ⬜
-- [ ] Coach assignments · training plans · training records · coach workspace
+## Phase 6 — Coaching (10%) ✅
+- [x] `CoachAssignment` (coachId, memberId, branchId, releasedAt) + `TrainingPlan` (title/goal/content, auto-archive) + `TrainingRecord` (summary, duration, intensity, optional plan link) + `CoachingDbContext` (own SQLite file) with a partial unique index (`CoachId+MemberId WHERE ReleasedAtUtc IS NULL`) — one active pair, enforced at the DB level
+- [x] Endpoints: POST /api/v1/coaching/assignments (Management; reception pinned to JWT branch) · GET /coaching/assignments (Staff; coach role forced to own rows+branch, active-first ordering) · POST /assignments/{id}/release (management or owning coach) · POST /coaching/plans (admin or coach; REQUIRES an active assignment `coaching.member_not_assigned`; auto-archives the author's previous active plan) · GET /coaching/plans · POST /plans/{id}/archive · POST /coaching/records (assignment-gated, plan link must match the pair, branch pinned/explicit) · GET /coaching/records · GET /coaching/coaches (active coach accounts + open-assignment counts via `IIdentityModule`) · GET /coaching/summary (KPIs incl. `membersPresentNow` consuming `IAttendanceModule.IsMemberPresentAsync` — the Phase 4 contract hook)
+- [x] Role discipline: reception/buffet read-only on plans/records (`coaching.forbidden` 403); coach writes always self-scoped from the JWT `sub`; precise errorCodes (`coaching.coach_not_found|member_not_found|member_inactive|assignment_not_found|assignment_exists|already_released|member_not_assigned|plan_not_found|plan_not_active|record_not_found|forbidden`)
+- [x] `ICoachingModule` public contract (`GetActiveForMemberAsync`) ready for Phase 8 dashboards; `IIdentityModule.GetCoachesAsync` added (non-breaking); coach.south operator added to Phase 1 seeds (fresh DBs)
+- [x] CoachingSeeder: coach.north→Ali + →Maryam (active), coach.south→Sara (released history), Ali's Month-1 plan archived by Month-2 + Maryam's mobility plan, 5 training records resolved via public contracts
+- [x] Frontend: Coaching workspace (4 KPI chips, Assignments/Plans/Records tabs, search + coach/branch/status filters + pager), AssignCoachDialog (coach select with open-pair counts, active-member search, branch pinned/picker), PlanDialog (assigned-members select, auto-archive note) + read-only plan content viewer, RecordDialog (plan link incl. archived plans, duration 1–600 gate, intensity Low/Med/High), release/archive AlertDialogs, dashboard phase note → coaching link; fa/en + RTL + Jalali
+- [x] Verified: eslint/tsc/next build clean; browser E2E — duplicate pair rejected (`coaching.assignment_exists`), released pair re-assignable, plan create flipped Month-2 to Archived (exactly-one-active invariant), member selects list only assigned actives, record logged with plan link, coach login fully scoped (own KPIs 2/2/5/1 vs admin 3/2/5/2, no assign button, no coach/branch filters), EN/LTR + fa RTL + mobile 390px; zero console errors. Screenshots: download/gms-phase6-coaching-admin-fa.png, gms-phase6-coaching-fa.png, gms-phase6-mobile.png
 
 ## Phase 7 — Buffet (10%) ⬜
 - [ ] Product & per-branch price admin · POS order (cash/wallet)
