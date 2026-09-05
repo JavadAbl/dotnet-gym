@@ -196,3 +196,18 @@ Stage Summary:
 - Backend: cd backend && dotnet tool restore && dotnet test Gms.sln && dotnet run --project src/Api/Gms.Api (admin/Admin@123) — migrations apply on boot; audit trail at GET /api/v1/audit (admin); login rate-limited 10/min/IP; global bucket 200/10s.
 - Deployment guide: download/gms-deployment.md. Frontend unchanged: :3000 demo mode or NEXT_PUBLIC_GMS_API_BASE for the real API.
 - Suggested next steps beyond v1: change all seed passwords on any real deployment, recreate pre-Phase-9 dev DBs before authoring migration #2 (baselining caveat), and consider an admin audit-log tab in the UI if audit visibility beyond Swagger is wanted.
+
+---
+Task ID: R-1 (v1 release packaging)
+Agent: main (Super Z)
+Task: Create gms-v1.zip — portable release snapshot (frontend + backend + agent-continuity docs)
+
+Work Log:
+- Verified disk state: all 10 phases complete (progress tracker 100%); backend source 1.2M clean (no bin/obj), frontend at repo root.
+- Staged gms-v1/ via scripts/make-v1-zip.sh: backend/ (full solution: 9 modules + *.Public + Api host + tests + .config/dotnet-tools.json), frontend/ (src, public, prisma scaffold, package.json, bun.lock, all ts/next configs, portable .env + .env.example, .gitignore), docs/ (implementation plan v1.1, progress, agents guide, deployment guide + 17 phase screenshots), root AGENTS.md + worklog.md + new README.md (zip layout, path mapping download/→docs/, run instructions, agent rules summary).
+- Excluded: node_modules, .next, dev.log, tsconfig.tsbuildinfo, tool-results, examples, mini-services, db/, sandbox .env (replaced with portable relative-path version).
+- Zipped to download/gms-v1.zip (1.6M, 393 entries); python zipfile verification: integrity OK, all key files present, zero junk entries, all 9 modules confirmed (143 .cs, 91 frontend .ts/.tsx).
+
+Stage Summary:
+- Deliverable: download/gms-v1.zip — self-contained v1 snapshot; a fresh agent can restore continuity from zip README → docs/gms-agents-guide.md → docs/gms-progress.md → worklog.md.
+- Staging kept reproducible via scripts/make-v1-zip.sh; staging dir removed after verification.
