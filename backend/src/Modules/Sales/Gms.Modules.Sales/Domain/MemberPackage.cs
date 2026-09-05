@@ -22,6 +22,9 @@ public enum ReceiptKind
 
     /// <summary>Wallet cash-in at the desk (Phase 5). Created by the Wallet module through the Sales contract.</summary>
     TopUp = 3,
+
+    /// <summary>Buffet POS order (Phase 7). Created by the Buffet module through the Sales contract; no member package.</summary>
+    BuffetPurchase = 4,
 }
 
 /// <summary>

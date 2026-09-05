@@ -69,4 +69,12 @@ public static class ErrorCodes
     public const string CoachingPlanNotActive = "coaching.plan_not_active";
     public const string CoachingRecordNotFound = "coaching.record_not_found";
     public const string CoachingForbidden = "coaching.forbidden";
+
+    // buffet (Phase 7)
+    public const string BuffetMemberNotFound = "buffet.member_not_found";
+    public const string BuffetMemberInactive = "buffet.member_inactive";
+    public const string BuffetItemsEmpty = "buffet.items_empty";
+    public const string BuffetInvalidQuantity = "buffet.invalid_quantity";
+    public const string BuffetProductInactive = "buffet.product_inactive";
+    public const string BuffetProductNotPricedInBranch = "buffet.product_not_priced_in_branch";
 }

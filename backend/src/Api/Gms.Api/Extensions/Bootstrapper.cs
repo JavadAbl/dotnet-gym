@@ -25,7 +25,8 @@ internal static class Bootstrapper
         // Seed order matters: branches → identity (links operators) → catalog (grants access)
         // → members (demo data) → wallet (opening balances for demo members) → sales (demo purchases)
         // → attendance (demo visits referencing member packages)
-        // → coaching (demo assignments/plans/records referencing members + coach users).
+        // → coaching (demo assignments/plans/records referencing members + coach users)
+        // → buffet (demo POS orders referencing members, products and wallet balances).
         using (var scope = services.CreateScope())
         {
             await BranchesSeeder.SeedAsync(scope.ServiceProvider);
@@ -45,6 +46,7 @@ internal static class Bootstrapper
         await SalesSeeder.SeedAsync(services);
         await AttendanceSeeder.SeedAsync(services);
         await CoachingSeeder.SeedAsync(services);
+        await BuffetSeeder.SeedAsync(services);
     }
 }
 

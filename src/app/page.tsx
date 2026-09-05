@@ -7,6 +7,7 @@ import type { Branch, ExercisePackage, Member, MemberPackage, MemberStatus } fro
 import { AppShell, type ViewKey } from "@/components/gms/app-shell";
 import { AttendanceView } from "@/components/gms/attendance-view";
 import { BranchesView } from "@/components/gms/branches-view";
+import { BuffetView } from "@/components/gms/buffet-view";
 import { CoachingView } from "@/components/gms/coaching-view";
 import { DashboardView } from "@/components/gms/dashboard-view";
 import { LoginView } from "@/components/gms/login-view";
@@ -56,6 +57,7 @@ function Workspace() {
   const [membersRefresh, setMembersRefresh] = React.useState(0);
   const [salesRefresh, setSalesRefresh] = React.useState(0);
   const [walletRefresh, setWalletRefresh] = React.useState(0);
+  const [buffetRefresh, setBuffetRefresh] = React.useState(0);
 
   // dialog state
   const [formOpen, setFormOpen] = React.useState(false);
@@ -150,8 +152,7 @@ function Workspace() {
       {view === "dashboard" ? (
         <DashboardView
           onOpenAttendance={() => setView("attendance")}
-          onOpenWallet={() => setView("wallet")}
-          onOpenCoaching={() => setView("coaching")}
+          onOpenBuffet={() => setView("buffet")}
         />
       ) : null}
       {view === "members" ? (
@@ -176,6 +177,7 @@ function Workspace() {
         <WalletView branches={branches} refreshSignal={walletRefresh} />
       ) : null}
       {view === "coaching" ? <CoachingView branches={branches} /> : null}
+      {view === "buffet" ? <BuffetView branches={branches} refreshSignal={buffetRefresh} /> : null}
       {view === "packages" ? <PackagesView /> : null}
       {view === "branches" ? <BranchesView /> : null}
 

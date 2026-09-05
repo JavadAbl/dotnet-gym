@@ -44,4 +44,14 @@ public interface ISalesModule
     /// </summary>
     Task<ReceiptCreatedDto> CreateTopUpReceiptAsync(
         Guid memberId, Guid branchId, long amountToman, string? note = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Phase 7: records a buffet POS order as a <c>BuffetPurchase</c> receipt — the universal
+    /// money document (single payment method per receipt, locked decision #5; no member package
+    /// is tied to it). Amount must be a positive integer Toman. The caller (Buffet module)
+    /// links the order (and, for wallet payments, the wallet ledger row) to the receipt id.
+    /// Throws <c>validation.failed</c> (400) on non-positive amounts or unknown payment methods.
+    /// </summary>
+    Task<ReceiptCreatedDto> CreateBuffetReceiptAsync(
+        Guid memberId, Guid branchId, long amountToman, string paymentMethod, string? note = null, CancellationToken cancellationToken = default);
 }

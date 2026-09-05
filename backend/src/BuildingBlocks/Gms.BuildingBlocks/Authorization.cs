@@ -18,4 +18,10 @@ public static class Policies
     public const string Admin = "AdminOnly";
     public const string Management = "AdminOrReception";
     public const string Staff = "StaffAny";
+
+    /// <summary>
+    /// Phase 7: the buffet counter — POS orders may be run by the buffet operator,
+    /// reception (desk sales) and admin. Coaches have no counter duties.
+    /// </summary>
+    public const string Counter = "CounterStaff";
 }

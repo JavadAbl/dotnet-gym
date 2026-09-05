@@ -32,4 +32,7 @@ public interface ICatalogModule
     Task<bool> IsPackageAvailableInBranchAsync(Guid packageId, Guid branchId, CancellationToken cancellationToken = default);
 
     Task<BuffetProductDto?> GetProductAsync(Guid productId, CancellationToken cancellationToken = default);
+
+    /// <summary>Phase 7: all buffet products with per-branch prices (admin POS + Buffet seeder).</summary>
+    Task<IReadOnlyList<BuffetProductDto>> GetProductsAsync(CancellationToken cancellationToken = default);
 }

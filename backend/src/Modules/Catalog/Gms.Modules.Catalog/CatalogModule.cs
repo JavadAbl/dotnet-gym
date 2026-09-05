@@ -17,6 +17,7 @@ public static class CatalogModule
     public static IEndpointRouteBuilder MapCatalogEndpoints(this IEndpointRouteBuilder app)
     {
         CatalogEndpoints.Map(app);
+        ProductEndpoints.Map(app);
         return app;
     }
 }
@@ -50,5 +51,14 @@ internal sealed class CatalogModuleApi(CatalogDbContext db) : Public.ICatalogMod
             .Include(p => p.Prices)
             .FirstOrDefaultAsync(p => p.Id == productId, cancellationToken);
         return product?.ToDto();
+    }
+
+    public async Task<IReadOnlyList<Public.BuffetProductDto>> GetProductsAsync(CancellationToken cancellationToken = default)
+    {
+        var products = await db.BuffetProducts.AsNoTracking()
+            .Include(p => p.Prices)
+            .OrderBy(p => p.CreatedAtUtc)
+            .ToListAsync(cancellationToken);
+        return products.Select(p => p.ToDto()).ToList();
     }
 }

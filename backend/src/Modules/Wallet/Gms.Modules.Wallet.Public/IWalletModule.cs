@@ -51,4 +51,11 @@ public interface IWalletModule
     Task<Guid> CreditAsync(
         Guid memberId, long amountToman, string kind,
         Guid? relatedReceiptId = null, string? note = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Phase 7: attaches a receipt id to a ledger row created earlier without one
+    /// (the Buffet POS flow debits before the Sales receipt exists, then links it —
+    /// the same two-step the Wallet top-up performs inside its own module).
+    /// </summary>
+    Task LinkReceiptAsync(Guid transactionId, Guid receiptId, CancellationToken cancellationToken = default);
 }

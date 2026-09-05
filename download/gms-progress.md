@@ -1,11 +1,10 @@
 # GMS Progress Tracker
 
-Weighted total: **▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░░░░ 75%**
+Weighted total: **▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░░ 85%**
 
-> Updated: 2026-09-05 — Phase 6 (Coaching) delivered end-to-end and browser-verified.
-> Coach–member assignments gate plans and records; a new plan auto-archives the previous
-> active one; coaches see a fully scoped workspace (own rows, own branch, presence badges
-> via the Attendance contract).
+> Updated: 2026-09-05 — Phase 7 (Buffet) delivered end-to-end and browser-verified.
+> Per-branch product pricing admin, a counter POS (cash XOR wallet) with server-side totals,
+> and BuffetPurchase receipts reconciling the wallet ledger to the Toman.
 
 ## Phase 0 — Solution skeleton (8%) ✅ rebuilt
 - [x] `Gms.sln` + BuildingBlocks + Api host + 9 modules with `.Public` contract projects
@@ -65,8 +64,15 @@ Weighted total: **▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░░░░ 7
 - [x] Frontend: Coaching workspace (4 KPI chips, Assignments/Plans/Records tabs, search + coach/branch/status filters + pager), AssignCoachDialog (coach select with open-pair counts, active-member search, branch pinned/picker), PlanDialog (assigned-members select, auto-archive note) + read-only plan content viewer, RecordDialog (plan link incl. archived plans, duration 1–600 gate, intensity Low/Med/High), release/archive AlertDialogs, dashboard phase note → coaching link; fa/en + RTL + Jalali
 - [x] Verified: eslint/tsc/next build clean; browser E2E — duplicate pair rejected (`coaching.assignment_exists`), released pair re-assignable, plan create flipped Month-2 to Archived (exactly-one-active invariant), member selects list only assigned actives, record logged with plan link, coach login fully scoped (own KPIs 2/2/5/1 vs admin 3/2/5/2, no assign button, no coach/branch filters), EN/LTR + fa RTL + mobile 390px; zero console errors. Screenshots: download/gms-phase6-coaching-admin-fa.png, gms-phase6-coaching-fa.png, gms-phase6-mobile.png
 
-## Phase 7 — Buffet (10%) ⬜
-- [ ] Product & per-branch price admin · POS order (cash/wallet)
+## Phase 7 — Buffet (10%) ✅
+- [x] `BuffetOrder` (memberId, branchId, paymentMethod Cash\|Wallet, server-computed totalToman, linked ReceiptId) + `BuffetOrderItem` (productId + name/price SNAPSHOTS at sale time — later catalog edits never rewrite history) + `BuffetDbContext` (own SQLite file) with in-module FK + indexes
+- [x] POS order `POST /api/v1/buffet/orders` (new **Counter** policy: admin+reception+buffet): member Active gate, branch pinned from JWT claim (reception/buffet) or explicit (admin), per-branch price resolution via `ICatalogModule.GetProductAsync`, quantities 1–99 + duplicate-product merge, totals computed server-side (client never dictates money), cash XOR wallet (locked decision #5); wallet debits first (`BuffetPurchase` kind) with full compensation (order hard-delete + wallet credit-back) on any later failure; receipt created via `ISalesModule.CreateBuffetReceiptAsync` → order + ledger row linked (new `IWalletModule.LinkReceiptAsync`)
+- [x] Paged history `GET /api/v1/buffet/orders` (search via `IMembersModule.FindIdsAsync` — no JOINs; reception/buffet pinned to own branch, admin sees the chain) · counter KPIs `GET /api/v1/buffet/summary` (orders today, revenue, cash/wallet split, UTC day, branch-scoped); errorCodes `buffet.member_not_found|member_inactive|items_empty|invalid_quantity|product_inactive|product_not_priced_in_branch`
+- [x] Catalog product & per-branch price admin (locked decision #4): `POST/PUT /api/v1/catalog/products` (Admin) with name-duplicate guard, per-branch price validation via `IBranchesModule`, wholesale price replacement (upsert + drop, snapshots keep history); `ICatalogModule.GetProductsAsync` added (non-breaking)
+- [x] `ReceiptKind.BuffetPurchase = 4` — receipts stay the universal money document (TopUp-style null package link); `IBuffetModule.GetForMemberAsync` contract ready for member sheet / Phase 8
+- [x] BuffetSeeder (runs last): 3 demo orders — Ali wallet @ North yesterday (115,000 T), Sara cash @ South today (155,000 T), Maryam wallet @ North today (15,000 T) — wallet ledger ⇄ receipts reconcile exactly
+- [x] Frontend: Buffet workspace (4 KPI chips, POS tab with member search + branch pinned/picker + product grid with per-branch prices + cart summary + cash/wallet toggle with live balance & insufficient guard + note, Orders tab with search/branch/method filters + pager + Jalali dates, admin-only Products tab with per-branch price columns), ProductDialog (create/edit with per-branch price inputs + field errors), nav "buffet" (Coffee, admin+reception+buffet — coaches excluded), receipts tab BuffetPurchase badge + filter, dashboard phase note → buffet
+- [x] Verified: eslint/tsc/next build clean; browser E2E — buffet.north login sees a scoped workspace (North-pinned, no products tab), wallet order 2×water+1×bar = 115,000 T → balance 2,385,000→2,270,000 exact, ledger + receipts reconcile (total held 8,755,000 = Σ balances), insufficient-wallet guard blocks an oversized cart inline, cash order 1×water via UI, product "Isotonic Drink" created 70,000/75,000 per branch and instantly sellable, receipts show BuffetPurchase rows, EN/LTR + fa RTL + mobile 390px; zero console errors. Screenshots: download/gms-phase7-buffet-admin-fa.png, gms-phase7-buffet-buffetrole-fa.png, gms-phase7-buffet-admin-en.png, gms-phase7-buffet-mobile.png
 
 ## Phase 8 — Frontend completion (10%) ⬜
 - [ ] Dashboards/reports · role-aware workspaces · Jalali/RTL polish

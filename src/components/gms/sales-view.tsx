@@ -264,6 +264,7 @@ export function SalesView({ branches, onSell, onRefund, refreshSignal }: SalesVi
                 <SelectItem value="PackagePurchase">{t("wallet.kind.PackagePurchase")}</SelectItem>
                 <SelectItem value="PackageRefund">{t("wallet.kind.PackageRefund")}</SelectItem>
                 <SelectItem value="TopUp">{t("wallet.kind.TopUp")}</SelectItem>
+                <SelectItem value="BuffetPurchase">{t("wallet.kind.BuffetPurchase")}</SelectItem>
               </SelectContent>
             </Select>
           )}
@@ -415,7 +416,9 @@ export function SalesView({ branches, onSell, onRefund, refreshSignal }: SalesVi
                               ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-950 dark:text-emerald-300"
                               : receipt.kind === "TopUp"
                                 ? "bg-sky-100 text-sky-800 hover:bg-sky-100 dark:bg-sky-950 dark:text-sky-300"
-                                : "bg-amber-100 text-amber-800 hover:bg-amber-100 dark:bg-amber-950 dark:text-amber-300"
+                                : receipt.kind === "BuffetPurchase"
+                                  ? "bg-violet-100 text-violet-800 hover:bg-violet-100 dark:bg-violet-950 dark:text-violet-300"
+                                  : "bg-amber-100 text-amber-800 hover:bg-amber-100 dark:bg-amber-950 dark:text-amber-300"
                           }
                         >
                           {t(`wallet.kind.${receipt.kind}`)}

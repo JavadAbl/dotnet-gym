@@ -4,6 +4,7 @@ using Gms.BuildingBlocks.Data;
 using Gms.Modules.Attendance;
 using Gms.Modules.Branches;
 using Gms.Modules.Branches.Public;
+using Gms.Modules.Buffet;
 using Gms.Modules.Catalog;
 using Gms.Modules.Coaching;
 using Gms.Modules.Identity;
@@ -28,6 +29,7 @@ var salesCs = builder.Configuration.GetConnectionString("Sales") ?? "Data Source
 var walletCs = builder.Configuration.GetConnectionString("Wallet") ?? "Data Source=data/gms-wallet.db";
 var attendanceCs = builder.Configuration.GetConnectionString("Attendance") ?? "Data Source=data/gms-attendance.db";
 var coachingCs = builder.Configuration.GetConnectionString("Coaching") ?? "Data Source=data/gms-coaching.db";
+var buffetCs = builder.Configuration.GetConnectionString("Buffet") ?? "Data Source=data/gms-buffet.db";
 
 Directory.CreateDirectory("data");
 
@@ -62,6 +64,7 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy(Policies.Admin, p => p.RequireRole(UserRoles.Admin));
     options.AddPolicy(Policies.Management, p => p.RequireRole(UserRoles.Admin, UserRoles.Reception));
     options.AddPolicy(Policies.Staff, p => p.RequireAuthenticatedUser());
+    options.AddPolicy(Policies.Counter, p => p.RequireRole(UserRoles.Admin, UserRoles.Reception, UserRoles.Buffet));
 });
 
 // ---------------------------------------------------------------- modules (modular monolith wiring)
@@ -73,6 +76,7 @@ builder.Services.AddWalletModule(walletCs);
 builder.Services.AddSalesModule(salesCs);
 builder.Services.AddAttendanceModule(attendanceCs);
 builder.Services.AddCoachingModule(coachingCs);
+builder.Services.AddBuffetModule(buffetCs);
 
 // ---------------------------------------------------------------- swagger + cors (dev convenience)
 builder.Services.AddEndpointsApiExplorer();
@@ -120,6 +124,7 @@ app.MapWalletEndpoints();
 app.MapSalesEndpoints();
 app.MapAttendanceEndpoints();
 app.MapCoachingEndpoints();
+app.MapBuffetEndpoints();
 
 // ---------------------------------------------------------------- boot: WAL + EnsureCreated + seeds (Phase 1 order)
 await Bootstrapper.InitializeDatabasesAsync(app.Services, new Dictionary<string, string>
@@ -132,6 +137,7 @@ await Bootstrapper.InitializeDatabasesAsync(app.Services, new Dictionary<string,
     ["Sales"] = salesCs,
     ["Attendance"] = attendanceCs,
     ["Coaching"] = coachingCs,
+    ["Buffet"] = buffetCs,
 });
 
 app.MapGet("/api/v1/health", () => Results.Ok(new { status = "ok", utc = DateTime.UtcNow }))

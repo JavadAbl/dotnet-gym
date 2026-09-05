@@ -16,11 +16,12 @@ import type {
   PackageFreeze,
   PackageRefund,
   PagedResult,
+  PaymentMethod,
   Receipt,
   WalletTransaction,
 } from "./types";
 
-const DB_KEY = "gms.demo.db.v6";
+const DB_KEY = "gms.demo.db.v7";
 const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
 
 interface DemoUser {
@@ -86,6 +87,26 @@ export interface DemoTrainingRecordRecord {
   note: string | null;
 }
 
+/** Buffet POS order (Phase 7) — item names/prices are snapshots taken at order time. */
+export interface DemoBuffetOrderRecord {
+  id: string;
+  memberId: string;
+  branchId: string;
+  paymentMethod: PaymentMethod;
+  totalToman: number;
+  receiptId: string | null;
+  note: string | null;
+  createdAtUtc: string;
+  items: Array<{
+    productId: string;
+    nameEn: string;
+    nameFa: string;
+    quantity: number;
+    unitPriceToman: number;
+    lineTotalToman: number;
+  }>;
+}
+
 interface DemoDb {
   seededAt: string;
   users: DemoUser[];
@@ -101,6 +122,7 @@ interface DemoDb {
   coachAssignments: DemoCoachAssignmentRecord[];
   trainingPlans: DemoTrainingPlanRecord[];
   trainingRecords: DemoTrainingRecordRecord[];
+  buffetOrders: DemoBuffetOrderRecord[];
 }
 
 export const uid = () =>
@@ -249,12 +271,14 @@ function seedDb(): DemoDb {
     coachAssignments: [],
     trainingPlans: [],
     trainingRecords: [],
+    buffetOrders: [],
   };
 
   seedDemoSales(db);
   seedDemoAttendance(db);
   seedDemoWallet(db);
   seedDemoCoaching(db);
+  seedDemoBuffet(db);
   return db;
 }
 
@@ -857,6 +881,107 @@ function seedDemoAttendance(db: DemoDb): void {
       toEntry(ali, aliBasicSouth, south, "South Branch", "شعبه جنوب", minutesAgo(74 * 60), minutesAgo(72 * 60)),
     );
   }
+}
+
+// ---------------------------------------------------------------- Phase 7 demo seeds (mirror of BuffetSeeder)
+
+const minutesFromNow = (minutes: number) => new Date(Date.now() + minutes * 60_000).toISOString();
+
+function seedDemoBuffet(db: DemoDb): void {
+  const north = db.branches.find((b) => b.nameEn === "North Branch")!.id;
+  const south = db.branches.find((b) => b.nameEn === "South Branch")!.id;
+  const memberByCode = (code: string) => db.members.find((m) => m.code === code)!;
+  const productByName = (prefix: string) => db.products.find((p) => p.nameEn.startsWith(prefix))!;
+
+  const water = productByName("Water");
+  const proteinBar = productByName("Protein");
+  const energy = productByName("Energy");
+  const priceOf = (product: BuffetProduct, branchId: string) =>
+    product.prices.find((p) => p.branchId === branchId)!.priceToman;
+
+  // Wallet debit with a linked BuffetPurchase receipt — mirrors the endpoint orchestration.
+  const placeOrder = (
+    member: Member,
+    branchId: string,
+    paymentMethod: PaymentMethod,
+    lines: Array<{ product: BuffetProduct; quantity: number }>,
+    at: string,
+    note: string,
+  ): void => {
+    const branch = db.branches.find((b) => b.id === branchId)!;
+    const items = lines.map(({ product, quantity }) => {
+      const unitPriceToman = priceOf(product, branchId);
+      return {
+        productId: product.id,
+        nameEn: product.nameEn,
+        nameFa: product.nameFa,
+        quantity,
+        unitPriceToman,
+        lineTotalToman: unitPriceToman * quantity,
+      };
+    });
+    const totalToman = items.reduce((sum, item) => sum + item.lineTotalToman, 0);
+
+    const receiptId = uid();
+    db.receipts.push({
+      id: receiptId,
+      memberId: member.id,
+      branchId,
+      memberPackageId: null, // buffet orders are not tied to any exercise package.
+      kind: "BuffetPurchase",
+      paymentMethod,
+      amountToman: totalToman,
+      note,
+      createdAtUtc: at,
+      memberCode: member.code,
+      memberFullName: member.fullName,
+      branchNameEn: branch.nameEn,
+      branchNameFa: branch.nameFa,
+      packageNameEn: "—",
+      packageNameFa: "—",
+    });
+
+    if (paymentMethod === "Wallet") {
+      const account = db.walletAccounts.find((a) => a.memberId === member.id);
+      if (!account) throw new Error(`Seed error: no wallet account for ${member.code}`);
+      if (account.balanceToman < totalToman) throw new Error("Seed error: insufficient wallet balance");
+      account.balanceToman -= totalToman;
+      db.walletTransactions.push({
+        id: uid(),
+        walletAccountId: account.id,
+        amountToman: -totalToman,
+        kind: "BuffetPurchase",
+        balanceAfter: account.balanceToman,
+        relatedReceiptId: receiptId,
+        note,
+        createdAtUtc: at,
+      });
+    }
+
+    db.buffetOrders.push({
+      id: uid(),
+      memberId: member.id,
+      branchId,
+      paymentMethod,
+      totalToman,
+      receiptId,
+      note,
+      createdAtUtc: at,
+      items,
+    });
+  };
+
+  // 1) Ali — wallet @ North, yesterday: 2× water + 1× protein bar = 115,000 T.
+  placeOrder(memberByCode("M-00001"), north, "Wallet", [{ product: water, quantity: 2 }, { product: proteinBar, quantity: 1 }],
+    daysFromNow(-1), "Buffet order (seed).");
+
+  // 2) Sara — cash @ South, ~90 minutes ago: 1× energy drink + 1× protein bar = 155,000 T.
+  placeOrder(memberByCode("M-00002"), south, "Cash", [{ product: energy, quantity: 1 }, { product: proteinBar, quantity: 1 }],
+    minutesFromNow(-90), "Buffet order (seed).");
+
+  // 3) Maryam — wallet @ North, 2 hours ago: 1× water = 15,000 T.
+  placeOrder(memberByCode("M-00004"), north, "Wallet", [{ product: water, quantity: 1 }],
+    minutesFromNow(-120), "Buffet order (seed).");
 }
 
 export function loadDb(): DemoDb {

@@ -47,18 +47,30 @@ import {
   demoListTrainingRecords,
   demoReleaseAssignment,
 } from "./demo-coaching";
+import {
+  demoCreateBuffetOrder,
+  demoCreateProduct,
+  demoGetBuffetSummary,
+  demoSearchBuffetOrders,
+  demoUpdateProduct,
+} from "./demo-buffet";
 import type {
   AttendanceEntry,
   AttendanceQuery,
   Branch,
+  BuffetOrder,
+  BuffetOrderQuery,
   BuffetProduct,
+  BuffetSummary,
   CheckInRequest,
   CoachAssignment,
   CoachAssignmentQuery,
   CoachListResponse,
   CoachingSummary,
   CreateAssignmentRequest,
+  CreateBuffetOrderRequest,
   CreatePlanRequest,
+  CreateProductRequest,
   CreateRecordRequest,
   ExercisePackage,
   LoginResponse,
@@ -80,6 +92,7 @@ import type {
   TrainingPlanQuery,
   TrainingRecord,
   TrainingRecordQuery,
+  UpdateProductRequest,
   WalletAccountsPage,
   WalletAccountsQuery,
   WalletSnapshot,
@@ -418,6 +431,50 @@ export function getCoachingSummary(coachId?: string): Promise<CoachingSummary> {
   if (isDemoMode) return demoCoachingSummary(coachId);
   const query = coachId ? `?coachId=${encodeURIComponent(coachId)}` : "";
   return request<CoachingSummary>(`/coaching/summary${query}`);
+}
+
+// ---------------------------------------------------------------- buffet (Phase 7)
+
+export function createBuffetOrder(req: CreateBuffetOrderRequest): Promise<BuffetOrder> {
+  if (isDemoMode) return demoCreateBuffetOrder(req);
+  return request<BuffetOrder>("/buffet/orders", {
+    method: "POST",
+    body: JSON.stringify(req),
+  });
+}
+
+export function searchBuffetOrders(query: BuffetOrderQuery): Promise<PagedResult<BuffetOrder>> {
+  if (isDemoMode) return demoSearchBuffetOrders(query);
+  const params = new URLSearchParams();
+  if (query.search) params.set("search", query.search);
+  if (query.memberId) params.set("memberId", query.memberId);
+  if (query.branchId) params.set("branchId", query.branchId);
+  if (query.paymentMethod) params.set("paymentMethod", query.paymentMethod);
+  params.set("page", String(query.page ?? 1));
+  params.set("pageSize", String(query.pageSize ?? 10));
+  return request<PagedResult<BuffetOrder>>(`/buffet/orders?${params.toString()}`);
+}
+
+export function getBuffetSummary(branchId?: string): Promise<BuffetSummary> {
+  if (isDemoMode) return demoGetBuffetSummary(branchId);
+  const query = branchId ? `?branchId=${encodeURIComponent(branchId)}` : "";
+  return request<BuffetSummary>(`/buffet/summary${query}`);
+}
+
+export function createProduct(req: CreateProductRequest): Promise<BuffetProduct> {
+  if (isDemoMode) return demoCreateProduct(req);
+  return request<BuffetProduct>("/catalog/products", {
+    method: "POST",
+    body: JSON.stringify(req),
+  });
+}
+
+export function updateProduct(id: string, req: UpdateProductRequest): Promise<BuffetProduct> {
+  if (isDemoMode) return demoUpdateProduct(id, req);
+  return request<BuffetProduct>(`/catalog/products/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(req),
+  });
 }
 
 export { GmsApiError };

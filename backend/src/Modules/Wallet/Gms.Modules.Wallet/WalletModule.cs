@@ -146,6 +146,14 @@ internal sealed class WalletModuleApi(WalletDbContext db) : Public.IWalletModule
         return ledgerRow.Id;
     }
 
+    /// <summary>Phase 7: lets cross-module callers (Buffet POS) attach their receipt to a ledger row.</summary>
+    public async Task LinkReceiptAsync(Guid transactionId, Guid receiptId, CancellationToken cancellationToken = default)
+    {
+        await db.WalletTransactions
+            .Where(t => t.Id == transactionId)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(t => t.RelatedReceiptId, receiptId), cancellationToken);
+    }
+
     private static WalletTransactionKind ParseKind(string kind) =>
         Enum.TryParse<WalletTransactionKind>(kind, ignoreCase: true, out var parsed) && Enum.IsDefined(parsed)
             ? parsed

@@ -95,7 +95,7 @@ export interface MemberWriteModel {
 
 export type MemberPackageStatus = "Active" | "Frozen" | "Refunded";
 export type PaymentMethod = "Cash" | "Wallet";
-export type ReceiptKind = "PackagePurchase" | "PackageRefund" | "TopUp";
+export type ReceiptKind = "PackagePurchase" | "PackageRefund" | "TopUp" | "BuffetPurchase";
 
 export interface MemberPackage {
   id: string;
@@ -416,6 +416,78 @@ export interface CreateRecordRequest {
   intensity?: "Low" | "Medium" | "High";
   note?: string;
   branchId?: string;
+}
+
+// ---------------------------------------------------------------- buffet (Phase 7)
+
+export interface BuffetOrderItem {
+  productId: string;
+  nameEn: string;
+  nameFa: string;
+  quantity: number;
+  unitPriceToman: number;
+  lineTotalToman: number;
+}
+
+export interface BuffetOrder {
+  id: string;
+  memberId: string;
+  branchId: string;
+  paymentMethod: PaymentMethod;
+  totalToman: number;
+  receiptId?: string | null;
+  note?: string | null;
+  createdAtUtc: string;
+  items: BuffetOrderItem[];
+  // enrichment resolved by the API / demo adapter
+  memberCode: string;
+  memberFullName: string;
+  branchNameEn: string;
+  branchNameFa: string;
+}
+
+/** Counter KPIs for today (UTC) — branch-scoped for reception/buffet, whole chain for admin. */
+export interface BuffetSummary {
+  ordersToday: number;
+  revenueTodayToman: number;
+  cashRevenueTodayToman: number;
+  walletRevenueTodayToman: number;
+}
+
+export interface BuffetOrderQuery {
+  search?: string;
+  memberId?: string;
+  branchId?: string;
+  paymentMethod?: PaymentMethod | "";
+  page?: number;
+  pageSize?: number;
+}
+
+export interface CreateBuffetOrderRequest {
+  memberId: string;
+  branchId?: string;
+  paymentMethod: PaymentMethod;
+  items: Array<{ productId: string; quantity: number }>;
+  note?: string;
+}
+
+export interface ProductPriceInput {
+  branchId: string;
+  priceToman: number;
+}
+
+export interface CreateProductRequest {
+  nameEn: string;
+  nameFa: string;
+  prices: ProductPriceInput[];
+  isActive?: boolean;
+}
+
+export interface UpdateProductRequest {
+  nameEn: string;
+  nameFa: string;
+  isActive: boolean;
+  prices: ProductPriceInput[];
 }
 
 export interface Session {

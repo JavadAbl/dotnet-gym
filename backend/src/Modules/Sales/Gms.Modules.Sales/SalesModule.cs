@@ -88,4 +88,39 @@ internal sealed class SalesModuleApi(SalesDbContext db) : Public.ISalesModule
 
         return new Public.ReceiptCreatedDto(receipt.Id, receipt.AmountToman, receipt.CreatedAtUtc);
     }
+
+    /// <summary>Phase 7: buffet POS orders join the universal money document as BuffetPurchase receipts.</summary>
+    public async Task<Public.ReceiptCreatedDto> CreateBuffetReceiptAsync(
+        Guid memberId, Guid branchId, long amountToman, string paymentMethod, string? note = null, CancellationToken cancellationToken = default)
+    {
+        if (amountToman <= 0)
+        {
+            throw new GmsException(
+                ErrorCodes.ValidationFailed,
+                "Buffet receipt amount must be a positive integer amount of Toman.",
+                400);
+        }
+
+        var method = SalesViews.ParsePaymentMethod(paymentMethod)
+            ?? throw new GmsException(
+                ErrorCodes.ValidationFailed,
+                "Payment method must be Cash or Wallet.",
+                400);
+
+        var receipt = new Domain.Receipt
+        {
+            MemberId = memberId,
+            BranchId = branchId,
+            MemberPackageId = null, // buffet orders are not tied to any exercise package.
+            Kind = Domain.ReceiptKind.BuffetPurchase,
+            PaymentMethod = method.Value,
+            AmountToman = amountToman,
+            Note = note,
+        };
+
+        db.Receipts.Add(receipt);
+        await db.SaveChangesAsync(cancellationToken);
+
+        return new Public.ReceiptCreatedDto(receipt.Id, receipt.AmountToman, receipt.CreatedAtUtc);
+    }
 }

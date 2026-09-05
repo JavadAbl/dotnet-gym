@@ -19,6 +19,7 @@
     <ProjectReference Include="..\..\Modules\Sales\Gms.Modules.Sales\Gms.Modules.Sales.csproj" />
     <ProjectReference Include="..\..\Modules\Attendance\Gms.Modules.Attendance\Gms.Modules.Attendance.csproj" />
     <ProjectReference Include="..\..\Modules\Coaching\Gms.Modules.Coaching\Gms.Modules.Coaching.csproj" />
+    <ProjectReference Include="..\..\Modules\Buffet\Gms.Modules.Buffet\Gms.Modules.Buffet.csproj" />
   </ItemGroup>
 
 </Project>
