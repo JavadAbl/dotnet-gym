@@ -1,10 +1,10 @@
 # GMS Progress Tracker
 
-Weighted total: **▓▓▓▓▓▓▓▓▓▓▓░░░░░░░░░░ 55%**
+Weighted total: **▓▓▓▓▓▓▓▓▓▓▓▓▓░░░░░░░░ 65%**
 
-> Updated: 2026-09-05 — Phase 4 (Attendance) delivered end-to-end and browser-verified.
-> Check-in gate consumes sessions atomically via `ISalesModule.TryConsumeSessionAsync`;
-> reception dialog stays open for rapid successive swipes.
+> Updated: 2026-09-05 — Phase 5 (Wallet) delivered end-to-end and browser-verified.
+> Top-up receipts make `Receipt` the universal money document; the ledger keeps the
+> `BalanceAfter` invariant on every row and reconciles with the receipts list 1:1.
 
 ## Phase 0 — Solution skeleton (8%) ✅ rebuilt
 - [x] `Gms.sln` + BuildingBlocks + Api host + 9 modules with `.Public` contract projects
@@ -46,9 +46,14 @@ Weighted total: **▓▓▓▓▓▓▓▓▓▓▓░░░░░░░░░�
 - [x] Frontend: Attendance workspace (stat chips, live presence card grid with 30 s auto-refresh + check-out, history table with search/branch filters + pager), rapid-swipe check-in dialog (stays open, inline success/denial panels, branch picker for admin / pinned label for reception), member sheet "visit history" section, dashboard phase-note → attendance link; fa/en + RTL + Jalali
 - [x] Verified: eslint/tsc/next build clean; browser E2E — inactive denied, valid swipe consumes (3→4/12), duplicate denied, South-only Basic rejected @ North + accepted @ South, check-out closes board row, history/presence consistent, EN/LTR + mobile 390px; zero console errors
 
-## Phase 5 — Wallet (10%) ⬜
-- [ ] Wallet account + top-up receipt, ledger with BalanceAfter
-- [ ] Wallet payment integration (sales / buffet)
+## Phase 5 — Wallet (10%) ✅
+- [x] Top-up flow `POST /api/v1/wallet/members/{id}/top-up` (Management): member Active gate (`wallet.member_inactive|member_not_found`), amount > 0 (`wallet.invalid_amount`), branch from JWT claim (reception pinned) or explicit (admin) — check-in pattern; credit → TopUp receipt → ledger link, compensating debit if the receipt fails (mirror of the purchase flow)
+- [x] `Receipt` promoted to the universal money document: `ReceiptKind.TopUp` + nullable `MemberPackageId`; new `ISalesModule.CreateTopUpReceiptAsync`; receipts list null-safe (TopUp rows show "—" for package) and reconcilable for end-of-day cash
+- [x] `GET /api/v1/wallet/accounts` — paged accounts + `totalBalanceToman` KPI, search via `IMembersModule.FindIdsAsync`, enrichment via `GetBatchAsync`, last-activity from in-module join (zero cross-module JOINs)
+- [x] `GET /api/v1/wallet/members/{id}/transactions` — paged ledger with kind filter; `IWalletModule.DebitAsync/CreditAsync` now return the ledger row id (non-breaking; used to link receipts)
+- [x] WalletSeeder: opening balances now backed by real TopUp receipts (home branch) via the Sales contract — ledger ⇄ receipts reconcile exactly
+- [x] Frontend: Wallet workspace (stat chips accounts/total-balance, Accounts tab paged+search, Ledger tab with member chip + kind filter + signed colored amounts + BalanceAfter column + pager), Top-up dialog (member search, branch pinned/picker, quick amount chips, note, inline success with new balance), member sheet wallet card (balance + last 3 rows + top-up shortcut), receipts tab TopUp rows, nav "wallet" (admin+reception), dashboard phase note → wallet; fa/en + RTL + Jalali
+- [x] Verified: eslint/tsc/next build clean; browser E2E — top-up +1.5M → balance 2.5M exact, ledger BalanceAfter chain (3M→5M Sara, 1M→2.5M Maryam), receipts show TopUp rows with "—", total balance KPI 10.5M = Σ balances, EN/LTR + mobile 390px; zero console errors
 
 ## Phase 6 — Coaching (10%) ⬜
 - [ ] Coach assignments · training plans · training records · coach workspace

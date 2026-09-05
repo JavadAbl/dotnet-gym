@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Ban, CircleCheck, Clock, Package, PackagePlus, Pencil } from "lucide-react";
+import { Ban, CircleCheck, CirclePlus, Clock, Package, PackagePlus, Pencil, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -11,9 +11,9 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { searchAttendance, searchMemberPackages } from "@/lib/gms/api";
-import type { AttendanceEntry, Branch, Member, MemberPackage, MemberStatus } from "@/lib/gms/types";
-import { formatDate, formatDateTime, formatNumber } from "@/lib/gms/jalali";
+import { getWalletSnapshot, searchAttendance, searchMemberPackages } from "@/lib/gms/api";
+import type { AttendanceEntry, Branch, Member, MemberPackage, MemberStatus, WalletSnapshot } from "@/lib/gms/types";
+import { formatDate, formatDateTime, formatNumber, formatToman } from "@/lib/gms/jalali";
 import { PackageStatusBadge, StatusBadge } from "./status-badge";
 import { useI18n } from "./providers";
 
@@ -25,6 +25,7 @@ interface MemberDetailSheetProps {
   onEdit: (member: Member) => void;
   onSetStatus: (member: Member, status: MemberStatus) => Promise<void>;
   onSell: (member: Member) => void;
+  onTopUp: (member: Member) => void;
 }
 
 function Row({ label, value, ltr = false }: { label: string; value: React.ReactNode; ltr?: boolean }) {
@@ -46,22 +47,26 @@ export function MemberDetailSheet({
   onEdit,
   onSetStatus,
   onSell,
+  onTopUp,
 }: MemberDetailSheetProps) {
   const { t, locale } = useI18n();
   const [pendingStatus, setPendingStatus] = React.useState<MemberStatus | null>(null);
   const [packages, setPackages] = React.useState<MemberPackage[] | null>(null);
   const [visits, setVisits] = React.useState<AttendanceEntry[] | null>(null);
+  const [wallet, setWallet] = React.useState<WalletSnapshot | null>(null);
 
   // fetch the member's purchased packages whenever the sheet opens for a member
   React.useEffect(() => {
     if (!member) {
       setPackages(null);
       setVisits(null);
+      setWallet(null);
       return;
     }
     let cancelled = false;
     setPackages(null);
     setVisits(null);
+    setWallet(null);
     searchMemberPackages({ memberId: member.id, page: 1, pageSize: 20 })
       .then((result) => {
         if (!cancelled) setPackages(result.items);
@@ -75,6 +80,13 @@ export function MemberDetailSheet({
       })
       .catch(() => {
         if (!cancelled) setVisits([]);
+      });
+    getWalletSnapshot(member.id)
+      .then((snapshot) => {
+        if (!cancelled) setWallet(snapshot);
+      })
+      .catch(() => {
+        if (!cancelled) setWallet(null);
       });
     return () => {
       cancelled = true;
@@ -151,6 +163,61 @@ export function MemberDetailSheet({
                 <p className="min-h-16 whitespace-pre-wrap rounded-lg border bg-card p-3 text-sm">
                   {member.notes || t("member.notes.none")}
                 </p>
+              </section>
+
+              <section>
+                <h4 className="flex items-center justify-between pb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  <span className="flex items-center gap-2">
+                    <Wallet className="h-3.5 w-3.5" />
+                    {t("wallet.title")}
+                  </span>
+                  {member.status === "Active" ? (
+                    <button
+                      type="button"
+                      onClick={() => onTopUp(member)}
+                      className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-950"
+                    >
+                      <CirclePlus className="h-3 w-3" />
+                      {t("wallet.topup.action")}
+                    </button>
+                  ) : null}
+                </h4>
+                <div className="rounded-lg border bg-card p-3">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <p className="text-xs text-muted-foreground">{t("wallet.balance")}</p>
+                    {wallet === null ? (
+                      <div className="h-6 w-24 animate-pulse rounded bg-muted/60" />
+                    ) : (
+                      <p className="text-lg font-bold tabular-nums">
+                        {formatToman(wallet.balanceToman, locale)}
+                      </p>
+                    )}
+                  </div>
+                  {wallet && wallet.recentTransactions.length > 0 ? (
+                    <ul className="mt-2 space-y-1 border-t pt-2">
+                      {wallet.recentTransactions.slice(0, 3).map((transaction) => (
+                        <li key={transaction.id} className="flex items-center justify-between gap-2 text-xs">
+                          <span className="truncate text-muted-foreground">
+                            {t(`wallet.kind.${transaction.kind}`)}
+                          </span>
+                          <span
+                            className={`shrink-0 font-medium tabular-nums ${
+                              transaction.amountToman > 0
+                                ? "text-emerald-700 dark:text-emerald-400"
+                                : "text-red-700 dark:text-red-400"
+                            }`}
+                            dir="ltr"
+                          >
+                            {transaction.amountToman > 0 ? "+" : "−"}
+                            {formatToman(Math.abs(transaction.amountToman), locale)}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : wallet && !wallet.hasAccount ? (
+                    <p className="mt-2 border-t pt-2 text-xs text-muted-foreground">{t("wallet.noAccount")}</p>
+                  ) : null}
+                </div>
               </section>
 
               <section>

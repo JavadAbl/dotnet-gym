@@ -1,3 +1,4 @@
+using Gms.BuildingBlocks;
 using Gms.Modules.Sales.Features;
 using Gms.Modules.Sales.Infrastructure;
 using Microsoft.EntityFrameworkCore;
@@ -58,5 +59,33 @@ internal sealed class SalesModuleApi(SalesDbContext db) : Public.ISalesModule
             .ExecuteUpdateAsync(setters => setters.SetProperty(mp => mp.SessionsUsed, mp => mp.SessionsUsed + 1),
                 cancellationToken);
         return affected == 1;
+    }
+
+    public async Task<Public.ReceiptCreatedDto> CreateTopUpReceiptAsync(
+        Guid memberId, Guid branchId, long amountToman, string? note = null, CancellationToken cancellationToken = default)
+    {
+        if (amountToman <= 0)
+        {
+            throw new GmsException(
+                ErrorCodes.WalletInvalidAmount,
+                "Top-up amount must be a positive integer amount of Toman.",
+                400);
+        }
+
+        var receipt = new Domain.Receipt
+        {
+            MemberId = memberId,
+            BranchId = branchId,
+            MemberPackageId = null, // TopUp receipts are not tied to any exercise package.
+            Kind = Domain.ReceiptKind.TopUp,
+            PaymentMethod = Domain.PaymentMethod.Cash, // cash-in at the desk by definition.
+            AmountToman = amountToman,
+            Note = note,
+        };
+
+        db.Receipts.Add(receipt);
+        await db.SaveChangesAsync(cancellationToken);
+
+        return new Public.ReceiptCreatedDto(receipt.Id, receipt.AmountToman, receipt.CreatedAtUtc);
     }
 }

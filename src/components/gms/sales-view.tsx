@@ -263,6 +263,7 @@ export function SalesView({ branches, onSell, onRefund, refreshSignal }: SalesVi
                 <SelectItem value="all">{t("sales.filter.kind.all")}</SelectItem>
                 <SelectItem value="PackagePurchase">{t("wallet.kind.PackagePurchase")}</SelectItem>
                 <SelectItem value="PackageRefund">{t("wallet.kind.PackageRefund")}</SelectItem>
+                <SelectItem value="TopUp">{t("wallet.kind.TopUp")}</SelectItem>
               </SelectContent>
             </Select>
           )}
@@ -412,12 +413,12 @@ export function SalesView({ branches, onSell, onRefund, refreshSignal }: SalesVi
                           className={
                             receipt.kind === "PackagePurchase"
                               ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-950 dark:text-emerald-300"
-                              : "bg-amber-100 text-amber-800 hover:bg-amber-100 dark:bg-amber-950 dark:text-amber-300"
+                              : receipt.kind === "TopUp"
+                                ? "bg-sky-100 text-sky-800 hover:bg-sky-100 dark:bg-sky-950 dark:text-sky-300"
+                                : "bg-amber-100 text-amber-800 hover:bg-amber-100 dark:bg-amber-950 dark:text-amber-300"
                           }
                         >
-                          {receipt.kind === "PackagePurchase"
-                            ? t("wallet.kind.PackagePurchase")
-                            : t("wallet.kind.PackageRefund")}
+                          {t(`wallet.kind.${receipt.kind}`)}
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -427,7 +428,11 @@ export function SalesView({ branches, onSell, onRefund, refreshSignal }: SalesVi
                       </TableCell>
                       <TableCell className="tabular-nums">{formatToman(receipt.amountToman, locale)}</TableCell>
                       <TableCell className="hidden max-w-48 truncate lg:table-cell">
-                        {locale === "fa" ? receipt.packageNameFa : receipt.packageNameEn}
+                        {receipt.memberPackageId
+                          ? locale === "fa"
+                            ? receipt.packageNameFa
+                            : receipt.packageNameEn
+                          : "—"}
                       </TableCell>
                     </TableRow>
                   ))

@@ -78,3 +78,25 @@ Stage Summary:
 - Backend: cd backend && dotnet run --project src/Api/Gms.Api (admin/Admin@123) — attendance endpoints under /api/v1 (Swagger UI at /swagger).
 - Frontend preview on :3000 (demo mode, DB key gms.demo.db.v4 → fresh attendance seeds); real API via NEXT_PUBLIC_GMS_API_BASE.
 - Next: Phase 5 — Wallet completion (top-up endpoint/receipt UI; core ledger already pulled forward in Phase 3).
+
+---
+Task ID: 5 (Phase 5 — Wallet module)
+Agent: main (Super Z)
+Task: Implement Phase 5 (Wallet) per gms-implementation-plan.md v1.1 roadmap
+
+Work Log:
+- Sales module extension (contained): Receipt promoted to the universal money document — ReceiptKind.TopUp = 3, MemberPackageId → Guid? (TopUp rows untied to packages); ReceiptView.MemberPackageId → Guid?; ListReceiptsEndpoint null-safe package enrichment (TopUp shows "—"); new ISalesModule.CreateTopUpReceiptAsync (validates amount > 0 → wallet.invalid_amount, persists Kind=TopUp + PaymentMethod=Cash) returning ReceiptCreatedDto.
+- Wallet module completion: POST /api/v1/wallet/members/{id}/top-up (Management) — member gate (new errorCodes wallet.member_not_found / wallet.member_inactive), amount > 0, branch from JWT branchId claim (reception pinned) or explicit branchId (admin) mirroring the check-in endpoint; orchestration = CreditAsync → CreateTopUpReceiptAsync → link ledger row RelatedReceiptId via ExecuteUpdate; catch → compensating DebitAsync (note explains) then rethrow — mirror image of the Phase 3 purchase flow.
+- GET /api/v1/wallet/accounts (Management): paged + WalletAccountsPage envelope with totalBalanceToman KPI; search via IMembersModule.FindIdsAsync (no cross-module JOIN); enrichment via GetBatchAsync; last activity per account from in-module WalletTransactions group-join; ordered balance desc.
+- GET /api/v1/wallet/members/{id}/transactions (Management): paged ledger, kind filter via Enum.TryParse; missing account → empty page (UI offers top-up). IWalletModule.DebitAsync/CreditAsync now return Task<Guid> (ledger row id) — non-breaking for Sales callers.
+- WalletSeeder: opening balances now credit → TopUp receipt (home branch) → link, so the receipts list reconciles with the ledger exactly; Gms.Modules.Wallet.csproj gained a Sales.Public project reference (contract-only, no cycle).
+- Frontend: types (WalletAccountRow, WalletAccountsPage, WalletTransactionsQuery, TopUpRequest/Response; Receipt.memberPackageId nullable + kind "TopUp"); demo-store v5 (DB key bump; opening balances now create linked TopUp receipts; seedDemoWallet adds Sara's desk top-up +2M → 5M); new demo-wallet.ts adapter mirroring endpoints + errorCodes (fixed a TDZ bug: last-activity Map self-reference → for-loop); api client: listWalletAccounts / listWalletTransactions / topUpWallet.
+- Wallet workspace: stat chips (accounts count, total balance held), Accounts tab (debounced search, paged table sorted by balance, per-row ledger shortcut), Ledger tab (member chip with live balance + kind filter + pager, rows with kind badges, signed colored amounts, BalanceAfter column), TopUpDialog (member search, branch pinned label for reception vs picker for admin, quick amount chips 500k/1M/2M/5M, note, inline success panel with new balance). Member sheet gained a Wallet card (balance + last 3 ledger rows + top-up shortcut with preset member). Sales receipts tab: TopUp filter option + sky badge + "—" package column. Nav "wallet" (Wallet icon, admin+reception), dashboard phase note → wallet link. i18n +~60 fa/en keys.
+- Verified: eslint clean; tsc clean (GMS sources; fixed lucide WalletPlus → CirclePlus); next build passes; agent-browser E2E: top-up Maryam +1.5M @ North → new balance 2.5M shown inline and in store (2500000,5000000,500000,2500000), Sara ledger chain 3M→5M exact with BalanceAfter, receipts tab lists TopUp rows (شارژ/نقدی/—), total-balance KPI 10.5M = Σ balances, EN→LTR switch, fa RTL + mobile 390px screenshots (download/gms-phase5-wallet-fa.png, gms-phase5-wallet.png, gms-phase5-mobile.png); zero console errors.
+
+Stage Summary:
+- Phase 5 complete. Weighted progress 55% → 65%.
+- Backend: cd backend && dotnet run --project src/Api/Gms.Api (admin/Admin@123) — wallet endpoints under /api/v1 (Swagger UI at /swagger); Receipts = universal money document (purchases, refunds, top-ups).
+- Frontend preview on :3000 (demo mode, DB key gms.demo.db.v5 → fresh seeds with linked TopUp receipts); real API via NEXT_PUBLIC_GMS_API_BASE.
+- Wallet payments already serve Sales (Phase 3); Buffet wallet payments arrive in Phase 7 via the same IWalletModule contract (Kind=BuffetPurchase reserved).
+- Next: Phase 6 — Coaching (coach assignments, training plans, training records, coach workspace).

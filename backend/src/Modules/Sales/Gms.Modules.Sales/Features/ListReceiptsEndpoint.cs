@@ -57,7 +57,9 @@ public static class ListReceiptsEndpoint
                 var lookup = await SalesViews.LoadLookupAsync(
                     members, catalog, branches, items.Select(r => r.MemberId), cancellationToken);
 
-                var memberPackageIds = items.Select(r => r.MemberPackageId).Distinct().ToList();
+                var memberPackageIds = items
+                    .Where(r => r.MemberPackageId is { })
+                    .Select(r => r.MemberPackageId!.Value).Distinct().ToList();
                 var packageIdByMemberPackage = memberPackageIds.Count == 0
                     ? new Dictionary<Guid, Guid>()
                     : await db.MemberPackages.AsNoTracking()
@@ -66,7 +68,10 @@ public static class ListReceiptsEndpoint
 
                 var views = items.Select(r =>
                 {
-                    var packageId = packageIdByMemberPackage.GetValueOrDefault(r.MemberPackageId);
+                    // TopUp receipts have no member package (Phase 5) — package columns stay "—".
+                    var packageId = r.MemberPackageId is { } memberPackageId
+                        ? packageIdByMemberPackage.GetValueOrDefault(memberPackageId)
+                        : Guid.Empty;
                     return new ReceiptView(
                         r.Id,
                         r.MemberId,

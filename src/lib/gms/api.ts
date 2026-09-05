@@ -30,6 +30,11 @@ import {
   demoUnfreezeMemberPackage,
 } from "./demo-sales";
 import { GmsApiError } from "./demo-store";
+import {
+  demoListWalletAccounts,
+  demoListWalletTransactions,
+  demoTopUp,
+} from "./demo-wallet";
 import type {
   AttendanceEntry,
   AttendanceQuery,
@@ -50,7 +55,13 @@ import type {
   PurchaseRequest,
   Receipt,
   RefundRequest,
+  TopUpRequest,
+  TopUpResponse,
+  WalletAccountsPage,
+  WalletAccountsQuery,
   WalletSnapshot,
+  WalletTransaction,
+  WalletTransactionsQuery,
 } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_GMS_API_BASE;
@@ -266,11 +277,40 @@ export function searchAttendance(query: AttendanceQuery): Promise<PagedResult<At
   return request<PagedResult<AttendanceEntry>>(`/attendance?${params.toString()}`);
 }
 
-// ---------------------------------------------------------------- wallet (minimal core, Phase 3)
+// ---------------------------------------------------------------- wallet (Phase 5)
 
 export function getWalletSnapshot(memberId: string): Promise<WalletSnapshot> {
   if (isDemoMode) return demoGetWalletSnapshot(memberId);
   return request<WalletSnapshot>(`/wallet/members/${memberId}`);
+}
+
+export function listWalletAccounts(query: WalletAccountsQuery): Promise<WalletAccountsPage> {
+  if (isDemoMode) return demoListWalletAccounts(query);
+  const params = new URLSearchParams();
+  if (query.search) params.set("search", query.search);
+  params.set("page", String(query.page ?? 1));
+  params.set("pageSize", String(query.pageSize ?? 10));
+  return request<WalletAccountsPage>(`/wallet/accounts?${params.toString()}`);
+}
+
+export function listWalletTransactions(
+  memberId: string,
+  query: WalletTransactionsQuery,
+): Promise<PagedResult<WalletTransaction>> {
+  if (isDemoMode) return demoListWalletTransactions(memberId, query);
+  const params = new URLSearchParams();
+  if (query.kind) params.set("kind", query.kind);
+  params.set("page", String(query.page ?? 1));
+  params.set("pageSize", String(query.pageSize ?? 10));
+  return request<PagedResult<WalletTransaction>>(`/wallet/members/${memberId}/transactions?${params.toString()}`);
+}
+
+export function topUpWallet(memberId: string, req: TopUpRequest): Promise<TopUpResponse> {
+  if (isDemoMode) return demoTopUp(memberId, req);
+  return request<TopUpResponse>(`/wallet/members/${memberId}/top-up`, {
+    method: "POST",
+    body: JSON.stringify(req),
+  });
 }
 
 export { GmsApiError };

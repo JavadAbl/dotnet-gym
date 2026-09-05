@@ -38,6 +38,8 @@ public static class ErrorCodes
     public const string SalesRefundAmountInvalid = "sales.refund_amount_invalid";
 
     // wallet
+    public const string WalletMemberNotFound = "wallet.member_not_found";
+    public const string WalletMemberInactive = "wallet.member_inactive";
     public const string WalletAccountNotFound = "wallet.account_not_found";
     public const string WalletInsufficientBalance = "wallet.insufficient_balance";
     public const string WalletInvalidAmount = "wallet.invalid_amount";

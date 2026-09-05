@@ -20,7 +20,7 @@ import type {
   WalletTransaction,
 } from "./types";
 
-const DB_KEY = "gms.demo.db.v4";
+const DB_KEY = "gms.demo.db.v5";
 const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
 
 interface DemoUser {
@@ -210,6 +210,7 @@ function seedDb(): DemoDb {
 
   seedDemoSales(db);
   seedDemoAttendance(db);
+  seedDemoWallet(db);
   return db;
 }
 
@@ -229,22 +230,43 @@ function seedDemoSales(db: DemoDb): void {
   const reza = memberByCode("M-00003");
   const maryam = memberByCode("M-00004");
 
-  // wallet accounts + opening top-ups (ledger consistent with backend seeds)
-  const credit = (memberId: string, amount: number, at: string) => {
-    let account = db.walletAccounts.find((a) => a.memberId === memberId);
+  // wallet accounts + opening top-ups — each backed by a real TopUp receipt so the
+  // receipts list reconciles with the ledger exactly like the Phase 5 backend seeds.
+  const branchById = (id: string) => db.branches.find((b) => b.id === id)!;
+  const credit = (member: Member, amount: number, at: string, note = "Opening balance (seed).") => {
+    let account = db.walletAccounts.find((a) => a.memberId === member.id);
     if (!account) {
-      account = { id: uid(), memberId, balanceToman: 0 };
+      account = { id: uid(), memberId: member.id, balanceToman: 0 };
       db.walletAccounts.push(account);
     }
     account.balanceToman += amount;
+    const receiptId = uid();
+    const branch = branchById(member.homeBranchId);
+    db.receipts.push({
+      id: receiptId,
+      memberId: member.id,
+      branchId: member.homeBranchId,
+      memberPackageId: null,
+      kind: "TopUp",
+      paymentMethod: "Cash",
+      amountToman: amount,
+      note,
+      createdAtUtc: at,
+      memberCode: member.code,
+      memberFullName: member.fullName,
+      branchNameEn: branch.nameEn,
+      branchNameFa: branch.nameFa,
+      packageNameEn: "—",
+      packageNameFa: "—",
+    });
     db.walletTransactions.push({
       id: uid(),
       walletAccountId: account.id,
       amountToman: amount,
       kind: "TopUp",
       balanceAfter: account.balanceToman,
-      relatedReceiptId: null,
-      note: "Opening balance (seed).",
+      relatedReceiptId: receiptId,
+      note,
       createdAtUtc: at,
     });
   };
@@ -264,10 +286,10 @@ function seedDemoSales(db: DemoDb): void {
     });
   };
 
-  credit(ali.id, 5_000_000, daysFromNow(-7));
-  credit(sara.id, 3_000_000, daysFromNow(-7));
-  credit(reza.id, 500_000, daysFromNow(-7));
-  credit(maryam.id, 1_000_000, daysFromNow(-7));
+  credit(ali, 5_000_000, daysFromNow(-7));
+  credit(sara, 3_000_000, daysFromNow(-7));
+  credit(reza, 500_000, daysFromNow(-7));
+  credit(maryam, 1_000_000, daysFromNow(-7));
 
   // 1) Ali — VIP @ North, WALLET, Active (used 3/12)
   const aliVipId = uid();
@@ -508,6 +530,50 @@ function seedDemoSales(db: DemoDb): void {
     reason: "Member relocated (seed).",
     refundedAtUtc: daysFromNow(-38),
   };
+}
+
+// ---------------------------------------------------------------- Phase 5 demo seeds (mirror of the top-up endpoint flow)
+
+function seedDemoWallet(db: DemoDb): void {
+  const south = db.branches.find((b) => b.nameEn === "South Branch")!;
+  const sara = db.members.find((m) => m.code === "M-00002")!;
+  const account = db.walletAccounts.find((a) => a.memberId === sara.id);
+  if (!account) {
+    return;
+  }
+
+  // A desk top-up from yesterday: ledger row + TopUp receipt, BalanceAfter exact.
+  const amount = 2_000_000;
+  const at = daysFromNow(-1);
+  account.balanceToman += amount;
+  const receiptId = uid();
+  db.receipts.push({
+    id: receiptId,
+    memberId: sara.id,
+    branchId: south.id,
+    memberPackageId: null,
+    kind: "TopUp",
+    paymentMethod: "Cash",
+    amountToman: amount,
+    note: "Desk top-up (seed).",
+    createdAtUtc: at,
+    memberCode: sara.code,
+    memberFullName: sara.fullName,
+    branchNameEn: south.nameEn,
+    branchNameFa: south.nameFa,
+    packageNameEn: "—",
+    packageNameFa: "—",
+  });
+  db.walletTransactions.push({
+    id: uid(),
+    walletAccountId: account.id,
+    amountToman: amount,
+    kind: "TopUp",
+    balanceAfter: account.balanceToman,
+    relatedReceiptId: receiptId,
+    note: "Desk top-up (seed).",
+    createdAtUtc: at,
+  });
 }
 
 // ---------------------------------------------------------------- Phase 4 demo seeds (mirror of AttendanceSeeder)

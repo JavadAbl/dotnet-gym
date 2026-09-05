@@ -40,7 +40,7 @@ public sealed record ReceiptView(
     Guid Id,
     Guid MemberId,
     Guid BranchId,
-    Guid MemberPackageId,
+    Guid? MemberPackageId,
     string Kind,
     string PaymentMethod,
     long AmountToman,

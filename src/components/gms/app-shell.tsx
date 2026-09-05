@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Activity, Dumbbell, LayoutDashboard, Languages, LogOut, MapPin, ReceiptText, ScanLine, Users } from "lucide-react";
+import { Activity, Dumbbell, LayoutDashboard, Languages, LogOut, MapPin, ReceiptText, ScanLine, Users, Wallet } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,13 +16,14 @@ import { isDemoMode } from "@/lib/gms/api";
 import type { Role } from "@/lib/gms/types";
 import { useAuth, useI18n } from "./providers";
 
-export type ViewKey = "dashboard" | "members" | "attendance" | "sales" | "packages" | "branches";
+export type ViewKey = "dashboard" | "members" | "attendance" | "sales" | "wallet" | "packages" | "branches";
 
 const NAV: Array<{ key: ViewKey; icon: React.ComponentType<{ className?: string }>; group: "operations" | "setup"; staff: Role[] }> = [
   { key: "dashboard", icon: LayoutDashboard, group: "operations", staff: ["admin", "reception", "buffet", "coach"] },
   { key: "members", icon: Users, group: "operations", staff: ["admin", "reception", "buffet", "coach"] },
   { key: "attendance", icon: ScanLine, group: "operations", staff: ["admin", "reception", "buffet", "coach"] },
   { key: "sales", icon: ReceiptText, group: "operations", staff: ["admin", "reception", "buffet", "coach"] },
+  { key: "wallet", icon: Wallet, group: "operations", staff: ["admin", "reception"] },
   { key: "packages", icon: Dumbbell, group: "setup", staff: ["admin", "reception", "buffet", "coach"] },
   { key: "branches", icon: MapPin, group: "setup", staff: ["admin", "reception", "buffet", "coach"] },
 ];

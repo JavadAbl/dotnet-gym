@@ -15,8 +15,10 @@
   <ItemGroup>
     <ProjectReference Include="..\..\..\BuildingBlocks\Gms.BuildingBlocks\Gms.BuildingBlocks.csproj" />
     <ProjectReference Include="..\Gms.Modules.Wallet.Public\Gms.Modules.Wallet.Public.csproj" />
-    <!-- Cross-module via public contracts: wallet accounts belong to members resolved through Members. -->
+    <!-- Cross-module via public contracts: wallet accounts belong to members resolved through Members;
+         top-up receipts (Phase 5) are created through the Sales contract. -->
     <ProjectReference Include="..\Members\Gms.Modules.Members.Public\Gms.Modules.Members.Public.csproj" />
+    <ProjectReference Include="..\Sales\Gms.Modules.Sales.Public\Gms.Modules.Sales.Public.csproj" />
   </ItemGroup>
 
 </Project>

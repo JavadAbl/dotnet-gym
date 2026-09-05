@@ -16,6 +16,8 @@ import { PackagesView } from "@/components/gms/packages-view";
 import { RefundDialog } from "@/components/gms/refund-dialog";
 import { SalesView } from "@/components/gms/sales-view";
 import { SellPackageDialog } from "@/components/gms/sell-package-dialog";
+import { TopUpDialog } from "@/components/gms/top-up-dialog";
+import { WalletView } from "@/components/gms/wallet-view";
 import { GmsProviders, useAuth, useI18n } from "@/components/gms/providers";
 
 export default function Page() {
@@ -52,6 +54,7 @@ function Workspace() {
   const [packages, setPackages] = React.useState<ExercisePackage[]>([]);
   const [membersRefresh, setMembersRefresh] = React.useState(0);
   const [salesRefresh, setSalesRefresh] = React.useState(0);
+  const [walletRefresh, setWalletRefresh] = React.useState(0);
 
   // dialog state
   const [formOpen, setFormOpen] = React.useState(false);
@@ -60,6 +63,8 @@ function Workspace() {
   const [sellOpen, setSellOpen] = React.useState(false);
   const [sellPresetMember, setSellPresetMember] = React.useState<Member | null>(null);
   const [refundTarget, setRefundTarget] = React.useState<MemberPackage | null>(null);
+  const [topupOpen, setTopupOpen] = React.useState(false);
+  const [topupPresetMember, setTopupPresetMember] = React.useState<Member | null>(null);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -128,9 +133,25 @@ function Workspace() {
     setMembersRefresh((n) => n + 1);
   }
 
+  function openTopUp(member?: Member) {
+    setTopupPresetMember(member ?? null);
+    setTopupOpen(true);
+  }
+
+  function handleToppedUp() {
+    toast.success(t("wallet.topup.success.toast"));
+    setWalletRefresh((n) => n + 1);
+    setMembersRefresh((n) => n + 1);
+  }
+
   return (
     <AppShell view={view} onViewChange={setView}>
-      {view === "dashboard" ? <DashboardView onOpenAttendance={() => setView("attendance")} /> : null}
+      {view === "dashboard" ? (
+        <DashboardView
+          onOpenAttendance={() => setView("attendance")}
+          onOpenWallet={() => setView("wallet")}
+        />
+      ) : null}
       {view === "members" ? (
         <MembersView
           branches={branches}
@@ -148,6 +169,9 @@ function Workspace() {
           onRefund={setRefundTarget}
           refreshSignal={salesRefresh}
         />
+      ) : null}
+      {view === "wallet" ? (
+        <WalletView branches={branches} refreshSignal={walletRefresh} />
       ) : null}
       {view === "packages" ? <PackagesView /> : null}
       {view === "branches" ? <BranchesView /> : null}
@@ -174,6 +198,10 @@ function Workspace() {
           setDetailMember(null);
           openSell(member);
         }}
+        onTopUp={(member) => {
+          setDetailMember(null);
+          openTopUp(member);
+        }}
       />
 
       <SellPackageDialog
@@ -190,6 +218,14 @@ function Workspace() {
         onOpenChange={(open) => (open ? undefined : setRefundTarget(null))}
         memberPackage={refundTarget}
         onRefunded={handleRefunded}
+      />
+
+      <TopUpDialog
+        open={topupOpen}
+        onOpenChange={setTopupOpen}
+        branches={branches}
+        presetMember={topupPresetMember}
+        onToppedUp={handleToppedUp}
       />
     </AppShell>
   );

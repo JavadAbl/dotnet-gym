@@ -95,7 +95,7 @@ export interface MemberWriteModel {
 
 export type MemberPackageStatus = "Active" | "Frozen" | "Refunded";
 export type PaymentMethod = "Cash" | "Wallet";
-export type ReceiptKind = "PackagePurchase" | "PackageRefund";
+export type ReceiptKind = "PackagePurchase" | "PackageRefund" | "TopUp";
 
 export interface MemberPackage {
   id: string;
@@ -136,7 +136,8 @@ export interface Receipt {
   id: string;
   memberId: string;
   branchId: string;
-  memberPackageId: string;
+  /** Null for TopUp receipts — they are not tied to any exercise package (Phase 5). */
+  memberPackageId: string | null;
   kind: ReceiptKind;
   paymentMethod: PaymentMethod;
   amountToman: number;
@@ -229,7 +230,7 @@ export interface AttendanceQuery {
   pageSize?: number;
 }
 
-// ---------------------------------------------------------------- wallet (minimal core for wallet payments)
+// ---------------------------------------------------------------- wallet (Phase 5)
 
 export interface WalletTransaction {
   id: string;
@@ -246,6 +247,45 @@ export interface WalletSnapshot {
   hasAccount: boolean;
   balanceToman: number;
   recentTransactions: WalletTransaction[];
+}
+
+export interface WalletAccountRow {
+  memberId: string;
+  memberCode: string;
+  memberFullName: string;
+  balanceToman: number;
+  lastActivityAtUtc?: string | null;
+}
+
+export interface WalletAccountsQuery {
+  search?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+/** Accounts page plus the total balance held across the filtered set (workspace KPI). */
+export interface WalletAccountsPage extends PagedResult<WalletAccountRow> {
+  totalBalanceToman: number;
+}
+
+export interface WalletTransactionsQuery {
+  kind?: WalletTransaction["kind"] | "";
+  page?: number;
+  pageSize?: number;
+}
+
+export interface TopUpRequest {
+  amountToman: number;
+  branchId?: string;
+  note?: string;
+}
+
+export interface TopUpResponse {
+  memberId: string;
+  receiptId: string;
+  transactionId: string;
+  amountToman: number;
+  balanceToman: number;
 }
 
 export interface Session {

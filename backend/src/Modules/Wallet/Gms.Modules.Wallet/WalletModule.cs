@@ -66,7 +66,7 @@ internal sealed class WalletModuleApi(WalletDbContext db) : Public.IWalletModule
         await db.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task DebitAsync(
+    public async Task<Guid> DebitAsync(
         Guid memberId, long amountToman, string kind,
         Guid? relatedReceiptId = null, string? note = null, CancellationToken cancellationToken = default)
     {
@@ -94,7 +94,7 @@ internal sealed class WalletModuleApi(WalletDbContext db) : Public.IWalletModule
         }
 
         account.BalanceToman -= amountToman;
-        db.WalletTransactions.Add(new WalletTransaction
+        var ledgerRow = new WalletTransaction
         {
             WalletAccountId = account.Id,
             AmountToman = -amountToman,
@@ -102,13 +102,15 @@ internal sealed class WalletModuleApi(WalletDbContext db) : Public.IWalletModule
             BalanceAfter = account.BalanceToman,
             RelatedReceiptId = relatedReceiptId,
             Note = note,
-        });
+        };
+        db.WalletTransactions.Add(ledgerRow);
 
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
+        return ledgerRow.Id;
     }
 
-    public async Task CreditAsync(
+    public async Task<Guid> CreditAsync(
         Guid memberId, long amountToman, string kind,
         Guid? relatedReceiptId = null, string? note = null, CancellationToken cancellationToken = default)
     {
@@ -128,7 +130,7 @@ internal sealed class WalletModuleApi(WalletDbContext db) : Public.IWalletModule
         }
 
         account.BalanceToman += amountToman;
-        db.WalletTransactions.Add(new WalletTransaction
+        var ledgerRow = new WalletTransaction
         {
             WalletAccountId = account.Id,
             AmountToman = amountToman,
@@ -136,10 +138,12 @@ internal sealed class WalletModuleApi(WalletDbContext db) : Public.IWalletModule
             BalanceAfter = account.BalanceToman,
             RelatedReceiptId = relatedReceiptId,
             Note = note,
-        });
+        };
+        db.WalletTransactions.Add(ledgerRow);
 
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
+        return ledgerRow.Id;
     }
 
     private static WalletTransactionKind ParseKind(string kind) =>

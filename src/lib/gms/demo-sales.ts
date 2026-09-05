@@ -56,7 +56,8 @@ function receiptView(db: ReturnType<typeof loadDb>, receiptId: string): Receipt 
   return receipt;
 }
 
-function ensureWalletAccount(db: ReturnType<typeof loadDb>, memberId: string) {
+// Shared with the Phase 5 wallet adapter (same ledger semantics, one implementation).
+export function ensureWalletAccount(db: ReturnType<typeof loadDb>, memberId: string) {
   let account = db.walletAccounts.find((a) => a.memberId === memberId);
   if (!account) {
     account = { id: uid(), memberId, balanceToman: 0 };
@@ -65,7 +66,7 @@ function ensureWalletAccount(db: ReturnType<typeof loadDb>, memberId: string) {
   return account;
 }
 
-function walletCredit(
+export function walletCredit(
   db: ReturnType<typeof loadDb>,
   memberId: string,
   amount: number,
@@ -88,7 +89,7 @@ function walletCredit(
   });
 }
 
-function walletDebit(
+export function walletDebit(
   db: ReturnType<typeof loadDb>,
   memberId: string,
   amount: number,

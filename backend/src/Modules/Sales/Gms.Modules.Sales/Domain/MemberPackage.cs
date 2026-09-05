@@ -19,6 +19,9 @@ public enum ReceiptKind
 {
     PackagePurchase = 1,
     PackageRefund = 2,
+
+    /// <summary>Wallet cash-in at the desk (Phase 5). Created by the Wallet module through the Sales contract.</summary>
+    TopUp = 3,
 }
 
 /// <summary>

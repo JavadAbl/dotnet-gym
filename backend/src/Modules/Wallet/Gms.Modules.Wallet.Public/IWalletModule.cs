@@ -38,13 +38,17 @@ public interface IWalletModule
     /// <summary>
     /// Conditionally debits the member's wallet. Throws <c>wallet.account_not_found</c> (404),
     /// <c>wallet.invalid_amount</c> (400) or <c>wallet.insufficient_balance</c> (409).
+    /// Returns the created ledger row id (callers may link cross-module documents to it).
     /// </summary>
-    Task DebitAsync(
+    Task<Guid> DebitAsync(
         Guid memberId, long amountToman, string kind,
         Guid? relatedReceiptId = null, string? note = null, CancellationToken cancellationToken = default);
 
-    /// <summary>Credits the member's wallet (account is created on first credit).</summary>
-    Task CreditAsync(
+    /// <summary>
+    /// Credits the member's wallet (account is created on first credit).
+    /// Returns the created ledger row id (callers may link cross-module documents to it).
+    /// </summary>
+    Task<Guid> CreditAsync(
         Guid memberId, long amountToman, string kind,
         Guid? relatedReceiptId = null, string? note = null, CancellationToken cancellationToken = default);
 }
