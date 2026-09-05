@@ -1,10 +1,10 @@
 # GMS Progress Tracker
 
-Weighted total: **▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░░ 85%**
+Weighted total: **▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░ 95%**
 
-> Updated: 2026-09-05 — Phase 7 (Buffet) delivered end-to-end and browser-verified.
-> Per-branch product pricing admin, a counter POS (cash XOR wallet) with server-side totals,
-> and BuffetPurchase receipts reconciling the wallet ledger to the Toman.
+> Updated: 2026-09-05 — Phase 8 (Frontend completion) delivered end-to-end and browser-verified.
+> Role-aware dashboards for all four roles, today/this-month reports composed from per-module
+> summaries, a member file that finally shows coach + buffet history, Jalali/RTL polish.
 
 ## Phase 0 — Solution skeleton (8%) ✅ rebuilt
 - [x] `Gms.sln` + BuildingBlocks + Api host + 9 modules with `.Public` contract projects
@@ -74,8 +74,15 @@ Weighted total: **▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░░ 8
 - [x] Frontend: Buffet workspace (4 KPI chips, POS tab with member search + branch pinned/picker + product grid with per-branch prices + cart summary + cash/wallet toggle with live balance & insufficient guard + note, Orders tab with search/branch/method filters + pager + Jalali dates, admin-only Products tab with per-branch price columns), ProductDialog (create/edit with per-branch price inputs + field errors), nav "buffet" (Coffee, admin+reception+buffet — coaches excluded), receipts tab BuffetPurchase badge + filter, dashboard phase note → buffet
 - [x] Verified: eslint/tsc/next build clean; browser E2E — buffet.north login sees a scoped workspace (North-pinned, no products tab), wallet order 2×water+1×bar = 115,000 T → balance 2,385,000→2,270,000 exact, ledger + receipts reconcile (total held 8,755,000 = Σ balances), insufficient-wallet guard blocks an oversized cart inline, cash order 1×water via UI, product "Isotonic Drink" created 70,000/75,000 per branch and instantly sellable, receipts show BuffetPurchase rows, EN/LTR + fa RTL + mobile 390px; zero console errors. Screenshots: download/gms-phase7-buffet-admin-fa.png, gms-phase7-buffet-buffetrole-fa.png, gms-phase7-buffet-admin-en.png, gms-phase7-buffet-mobile.png
 
-## Phase 8 — Frontend completion (10%) ⬜
-- [ ] Dashboards/reports · role-aware workspaces · Jalali/RTL polish
+## Phase 8 — Frontend completion (10%) ✅
+- [x] Sales KPI endpoint `GET /api/v1/sales/summary` (Management; reception pinned to JWT branch, admin whole-chain/explicit): active member packages, package revenue today with cash/wallet split, top-ups today, refunds today, month-to-date revenue/refunds — in-module queries only
+- [x] Dashboard v2 (role-aware workspaces): admin/reception see 8 KPI cards (members, presence, active packages, package revenue, wallet held, buffet revenue) + month line; buffet sees a counter board (presence/visits/buffet orders+revenue+split, branch-pinned); coach sees their own coaching KPIs (assignments/plans/7-day sessions/presence) — each role's cards only call endpoints its role may hit (Promise.allSettled, graceful partial failure)
+- [x] Quick actions row per role (management: new member / sell / top-up dialogs + check-in & POS & coaching views; buffet: POS; coach: coaching) — dialogs reused from the existing page-level wiring
+- [x] Reports tab (admin+reception): Today panel (visits, package revenue with payment split, top-ups, refunds, buffet orders/revenue), This-month panel (package revenue, refunds, wallet held), recent receipts table with kind badges + Jalali dates
+- [x] Member file completion: Active-coach section (via the member-scoped assignment search) + buffet orders section (last 3, snapshot item names, payment method, Jalali dates) — consumes the Phase 6/7 contracts through existing endpoints; wallet section already shows BuffetPurchase ledger rows
+- [x] Jalali/RTL polish: dashboard built RTL-first with Persian digit formatting (formatNumber) on every counter, tabular-nums + dir-safe money cells, Jalali dates throughout reports/receipts; phase note updated to Phase 8
+- [x] Demo adapter kept contract-exact: demoGetSalesSummary mirrors the endpoint (UTC day/month windows, branch scoping, payment split); DB key bumped to v8 for fresh seeds
+- [x] Verified: eslint/tsc/next build clean; browser E2E — admin overview 8/8 KPIs exact (4 members, 2 present, 3 active packages, 0 today revenue, wallet held 8,870,000 = Σ balances, buffet 170,000) and reports tab numbers reconciled to the receipt list; coach.north sees own 2/2/4/1 KPIs with no reports tab; buffet.north sees North-scoped 1/1/1/15,000; member sheet shows coach + buffet history for Maryam and Ali; fa RTL + EN + mobile 390px; zero console errors. Screenshots: download/gms-phase8-dashboard-admin-fa.png, gms-phase8-reports-admin-fa.png, gms-phase8-mobile.png
 
 ## Phase 9 — Hardening (5%) ⬜
 - [ ] EF migrations replace EnsureCreated · rate limiting · audit log · tests · deploy docs

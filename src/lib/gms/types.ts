@@ -187,6 +187,18 @@ export interface ReceiptQuery {
   pageSize?: number;
 }
 
+/** Sales workspace KPIs (Phase 8) — branch-scoped for reception, whole chain for admin. */
+export interface SalesSummary {
+  activePackages: number;
+  packageRevenueTodayToman: number;
+  packageRevenueCashTodayToman: number;
+  packageRevenueWalletTodayToman: number;
+  topUpsTodayToman: number;
+  refundsTodayToman: number;
+  packageRevenueMonthToman: number;
+  refundsMonthToman: number;
+}
+
 // ---------------------------------------------------------------- attendance (Phase 4)
 
 export interface AttendanceEntry {

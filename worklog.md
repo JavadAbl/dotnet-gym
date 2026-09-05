@@ -150,3 +150,25 @@ Stage Summary:
 - Frontend preview on :3000 (demo mode, DB key gms.demo.db.v7 → fresh buffet seeds); real API via NEXT_PUBLIC_GMS_API_BASE.
 - Buffet refunds/voids intentionally out of v1 scope (plan §7: POS order only); IBuffetModule.GetForMemberAsync ready for the Phase 8 member-sheet/dashboards.
 - Next: Phase 8 — Frontend completion (dashboards/reports, role-aware workspaces, Jalali/RTL polish).
+
+---
+Task ID: 8 (Phase 8 — Frontend completion)
+Agent: main (Super Z)
+Task: Implement Phase 8 (dashboards, reports, role-aware workspaces, Jalali/RTL polish) per gms-implementation-plan.md v1.1 roadmap
+
+Work Log:
+- Verified baseline first: progress tracker + worklog showed Phases 0–7 complete (85%); Phase 8 = frontend completion (10%).
+- Backend (the only server piece Phase 8 needed): GET /api/v1/sales/summary (Policies.Management, registered in SalesModule.MapSalesEndpoints) — active member packages (Active + unexpired), package revenue today with cash/wallet split, TopUps today, refunds today, month-to-date package revenue/refunds; reception pinned to the JWT branch claim, admin whole-chain or explicit branchId; strictly in-module queries (Receipts + MemberPackages in the Sales DB) — no cross-module JOINs.
+- Dashboard v2 (dashboard-view.tsx rewritten): role-aware KPI sets — admin/reception: 8 cards (total/active members, present now, visits today, active packages, package revenue today, wallet held, buffet revenue today) + month-to-date line; buffet: counter board (present/visits/buffet orders/buffet revenue + cash/wallet split, claim-branch scoped); coach: own coaching KPIs (active assignments/plans/7-day sessions/present now) via the Phase 6 summary hook. Each role only calls endpoints its role can hit (buffet summary = Counter, sales/wallet = Management); Promise.allSettled keeps partial failures graceful; overview/reports tabs; quick-actions row per role reusing the page-level dialogs (new member / sell / top-up) and view switches (check-in, POS, coaching).
+- Reports tab (admin+reception): Today panel (visits, package revenue + payment split, top-ups, refunds, buffet orders + revenue), This-month panel (package revenue, refunds, wallet held), recent-receipts table (last 5, kind badges, payment, Toman, Jalali dates) via the existing receipts endpoint with the pinned branch.
+- Member file completion: Active-coach section (searchCoachAssignments member-scoped, status=active) + Buffet-orders section (searchBuffetOrders memberId, last 3, snapshot item names "۲× آب معدنی…", payment method, Jalali dates) — consumes the Phase 6/7 surfaces through existing public endpoints, zero new contract surface needed.
+- Frontend data layer: SalesSummary type + getSalesSummary (real API path /sales/summary) + demoGetSalesSummary in demo-sales mirroring the endpoint exactly (UTC day/month windows, branch scoping, payment split); DB key bumped gms.demo.db.v8 for fresh seeds.
+- Jalali/RTL polish: Persian-digit formatNumber on every dashboard counter, dir-safe tabular money cells, Jalali dates in reports/receipts/member file; phase note updated to Phase 8 (hardening next); i18n +~50 fa/en keys (dashboard.tab/qa/reports.*, member.coach.*, member.buffet.*); fixed receipts-table keys to the existing sales.column.* set.
+- Verified: eslint clean, tsc clean (GMS sources), next build passes; agent-browser E2E: admin overview 8/8 KPIs exact (4 members / 2 present / 2 visits today / 3 active packages / 0 package revenue today / wallet held 8,870,000 = Σ balances incl. buffet debits / buffet 170,000) with the month line 1,200,000 · 0; reports tab rows reconcile with the receipts list (Sara cash 155,000 buffet top row); coach.north dashboard fully own-scoped (2/2/4/1, single Coaching quick action, no Reports tab); buffet.north counter board North-pinned (1 present / 1 visit / 1 order / 15,000 T, no Reports tab); member sheet coach + buffet sections verified for Maryam (coach.north, 15,000 water) and Ali (coach since ۲۴ مرداد, 115,000 order); fa RTL + mobile 390px; zero console errors. Screenshots: download/gms-phase8-dashboard-admin-fa.png, gms-phase8-reports-admin-fa.png, gms-phase8-mobile.png.
+
+Stage Summary:
+- Phase 8 complete. Weighted progress 85% → 95%.
+- Backend: cd backend && dotnet run --project src/Api/Gms.Api (admin/Admin@123; reception.north, buffet.north, coach.north — Operator@123) — new GET /api/v1/sales/summary under /api/v1 (Swagger UI at /swagger).
+- Frontend preview on :3000 (demo mode, DB key gms.demo.db.v8 → fresh seeds); real API via NEXT_PUBLIC_GMS_API_BASE.
+- Role-aware workspaces now span dashboard (KPIs/actions), coaching (coach-scoped), buffet (counter-scoped), and nav visibility; every dashboard number traces to a module endpoint the viewer's role may call.
+- Next: Phase 9 — Hardening (EF migrations replace EnsureCreated, rate limiting, audit log, tests, deployment docs).

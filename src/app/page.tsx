@@ -153,6 +153,10 @@ function Workspace() {
         <DashboardView
           onOpenAttendance={() => setView("attendance")}
           onOpenBuffet={() => setView("buffet")}
+          onOpenCoaching={() => setView("coaching")}
+          onCreateMember={openCreate}
+          onSell={() => openSell()}
+          onTopUp={() => openTopUp()}
         />
       ) : null}
       {view === "members" ? (

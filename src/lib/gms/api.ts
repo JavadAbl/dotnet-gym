@@ -22,6 +22,7 @@ import {
 import {
   demoFreezeMemberPackage,
   demoGetMemberPackage,
+  demoGetSalesSummary,
   demoGetWalletSnapshot,
   demoListReceipts,
   demoPurchaseMemberPackage,
@@ -86,6 +87,7 @@ import type {
   PurchaseRequest,
   Receipt,
   RefundRequest,
+  SalesSummary,
   TopUpRequest,
   TopUpResponse,
   TrainingPlan,
@@ -279,6 +281,12 @@ export function listReceipts(query: {
   params.set("page", String(query.page ?? 1));
   params.set("pageSize", String(query.pageSize ?? 10));
   return request<PagedResult<Receipt>>(`/sales/receipts?${params.toString()}`);
+}
+
+export function getSalesSummary(branchId?: string): Promise<SalesSummary> {
+  if (isDemoMode) return demoGetSalesSummary(branchId);
+  const query = branchId ? `?branchId=${encodeURIComponent(branchId)}` : "";
+  return request<SalesSummary>(`/sales/summary${query}`);
 }
 
 // ---------------------------------------------------------------- attendance (Phase 4)

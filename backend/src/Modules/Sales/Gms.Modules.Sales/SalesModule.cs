@@ -23,6 +23,7 @@ public static class SalesModule
         FreezeMemberPackageEndpoint.Map(app);
         RefundMemberPackageEndpoint.Map(app);
         ListReceiptsEndpoint.Map(app);
+        SalesSummaryEndpoint.Map(app);
         return app;
     }
 }

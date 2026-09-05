@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Ban, CircleCheck, CirclePlus, Clock, Package, PackagePlus, Pencil, Wallet } from "lucide-react";
+import { Ban, ClipboardList, CircleCheck, CirclePlus, Clock, CupSoda, Package, PackagePlus, Pencil, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -11,8 +11,23 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { getWalletSnapshot, searchAttendance, searchMemberPackages } from "@/lib/gms/api";
-import type { AttendanceEntry, Branch, Member, MemberPackage, MemberStatus, WalletSnapshot } from "@/lib/gms/types";
+import {
+  getWalletSnapshot,
+  searchAttendance,
+  searchBuffetOrders,
+  searchCoachAssignments,
+  searchMemberPackages,
+} from "@/lib/gms/api";
+import type {
+  AttendanceEntry,
+  Branch,
+  BuffetOrder,
+  CoachAssignment,
+  Member,
+  MemberPackage,
+  MemberStatus,
+  WalletSnapshot,
+} from "@/lib/gms/types";
 import { formatDate, formatDateTime, formatNumber, formatToman } from "@/lib/gms/jalali";
 import { PackageStatusBadge, StatusBadge } from "./status-badge";
 import { useI18n } from "./providers";
@@ -54,6 +69,8 @@ export function MemberDetailSheet({
   const [packages, setPackages] = React.useState<MemberPackage[] | null>(null);
   const [visits, setVisits] = React.useState<AttendanceEntry[] | null>(null);
   const [wallet, setWallet] = React.useState<WalletSnapshot | null>(null);
+  const [coach, setCoach] = React.useState<CoachAssignment | null>(null);
+  const [orders, setOrders] = React.useState<BuffetOrder[] | null>(null);
 
   // fetch the member's purchased packages whenever the sheet opens for a member
   React.useEffect(() => {
@@ -61,12 +78,16 @@ export function MemberDetailSheet({
       setPackages(null);
       setVisits(null);
       setWallet(null);
+      setCoach(null);
+      setOrders(null);
       return;
     }
     let cancelled = false;
     setPackages(null);
     setVisits(null);
     setWallet(null);
+    setCoach(null);
+    setOrders(null);
     searchMemberPackages({ memberId: member.id, page: 1, pageSize: 20 })
       .then((result) => {
         if (!cancelled) setPackages(result.items);
@@ -87,6 +108,21 @@ export function MemberDetailSheet({
       })
       .catch(() => {
         if (!cancelled) setWallet(null);
+      });
+    // Phase 8: active coach + last buffet orders via the member-scoped public searches.
+    searchCoachAssignments({ memberId: member.id, status: "active", page: 1, pageSize: 1 })
+      .then((result) => {
+        if (!cancelled) setCoach(result.items[0] ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setCoach(null);
+      });
+    searchBuffetOrders({ memberId: member.id, page: 1, pageSize: 3 })
+      .then((result) => {
+        if (!cancelled) setOrders(result.items);
+      })
+      .catch(() => {
+        if (!cancelled) setOrders([]);
       });
     return () => {
       cancelled = true;
@@ -274,6 +310,30 @@ export function MemberDetailSheet({
 
               <section>
                 <h4 className="flex items-center gap-2 pb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  <ClipboardList className="h-3.5 w-3.5" />
+                  {t("member.coach.title")}
+                </h4>
+                {coach ? (
+                  <div className="rounded-lg border bg-card p-2.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="truncate text-sm font-medium">{coach.coachName}</p>
+                      <span className="shrink-0 text-[11px] font-medium text-emerald-700 dark:text-emerald-400">
+                        {t("coaching.status.active")}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-xs tabular-nums text-muted-foreground">
+                      {t("coaching.column.assignedAt")}: {formatDate(coach.assignedAtUtc, locale)}
+                    </p>
+                  </div>
+                ) : (
+                  <p className="rounded-lg border border-dashed p-3 text-xs leading-relaxed text-muted-foreground">
+                    {t("member.coach.none")}
+                  </p>
+                )}
+              </section>
+
+              <section>
+                <h4 className="flex items-center gap-2 pb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   <Clock className="h-3.5 w-3.5" />
                   {t("attendance.tab.history")}
                 </h4>
@@ -301,6 +361,40 @@ export function MemberDetailSheet({
                         </div>
                         <p className="mt-1 text-xs tabular-nums text-muted-foreground">
                           {t("attendance.column.checkIn")}: {formatDateTime(visit.checkInAtUtc, locale)}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+
+              <section>
+                <h4 className="flex items-center gap-2 pb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  <CupSoda className="h-3.5 w-3.5" />
+                  {t("member.buffet.title")}
+                </h4>
+                {orders === null ? (
+                  <div className="h-16 animate-pulse rounded-lg border bg-muted/40" />
+                ) : orders.length === 0 ? (
+                  <p className="rounded-lg border border-dashed p-3 text-xs leading-relaxed text-muted-foreground">
+                    {t("member.buffet.empty")}
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {orders.map((order) => (
+                      <div key={order.id} className="rounded-lg border bg-card p-2.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="truncate text-xs text-muted-foreground">
+                            {order.items
+                              .map((item) => `${formatNumber(item.quantity, locale)}× ${locale === "fa" ? item.nameFa : item.nameEn}`)
+                              .join("، ")}
+                          </p>
+                          <span className="shrink-0 text-sm font-semibold tabular-nums">
+                            {formatToman(order.totalToman, locale)}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-xs tabular-nums text-muted-foreground">
+                          {formatDateTime(order.createdAtUtc, locale)} · {t(`buffet.pos.payment.${order.paymentMethod.toLowerCase()}`)}
                         </p>
                       </div>
                     ))}

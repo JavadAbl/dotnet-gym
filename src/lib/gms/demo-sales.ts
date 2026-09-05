@@ -20,6 +20,7 @@ import type {
   PurchaseRequest,
   Receipt,
   RefundRequest,
+  SalesSummary,
   WalletSnapshot,
 } from "./types";
 
@@ -432,6 +433,46 @@ export async function demoGetWalletSnapshot(memberId: string): Promise<WalletSna
     hasAccount: Boolean(account),
     balanceToman: account?.balanceToman ?? 0,
     recentTransactions: transactions,
+  };
+}
+
+// ---------------------------------------------------------------- workspace KPIs (Phase 8)
+
+export async function demoGetSalesSummary(branchId?: string): Promise<SalesSummary> {
+  await wait(160);
+  const db = loadDb();
+  const now = new Date();
+  const todayUtc = new Date(now);
+  todayUtc.setUTCHours(0, 0, 0, 0);
+  const monthStartUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+
+  // Mirrors the endpoint: in-module receipts + member packages only, branch-scoped.
+  const inBranch = <T extends { branchId: string }>(rows: T[]): T[] =>
+    branchId ? rows.filter((row) => row.branchId === branchId) : rows;
+
+  const receiptsToday = inBranch(db.receipts).filter((r) => r.createdAtUtc >= todayUtc.toISOString());
+  const receiptsMonth = inBranch(db.receipts).filter((r) => r.createdAtUtc >= monthStartUtc.toISOString());
+  const byKind = (rows: Receipt[], kind: Receipt["kind"]) =>
+    rows.filter((r) => r.kind === kind).reduce((sum, r) => sum + r.amountToman, 0);
+
+  const packageRevenueTodayToman = byKind(receiptsToday, "PackagePurchase");
+  const packageRevenueCashTodayToman = receiptsToday
+    .filter((r) => r.kind === "PackagePurchase" && r.paymentMethod === "Cash")
+    .reduce((sum, r) => sum + r.amountToman, 0);
+
+  const activePackages = inBranch(db.memberPackages).filter(
+    (mp) => mp.status === "Active" && mp.expiresAtUtc > now.toISOString(),
+  ).length;
+
+  return {
+    activePackages,
+    packageRevenueTodayToman,
+    packageRevenueCashTodayToman,
+    packageRevenueWalletTodayToman: packageRevenueTodayToman - packageRevenueCashTodayToman,
+    topUpsTodayToman: byKind(receiptsToday, "TopUp"),
+    refundsTodayToman: byKind(receiptsToday, "PackageRefund"),
+    packageRevenueMonthToman: byKind(receiptsMonth, "PackagePurchase"),
+    refundsMonthToman: byKind(receiptsMonth, "PackageRefund"),
   };
 }
 

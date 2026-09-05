@@ -21,7 +21,7 @@ import type {
   WalletTransaction,
 } from "./types";
 
-const DB_KEY = "gms.demo.db.v7";
+const DB_KEY = "gms.demo.db.v8";
 const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
 
 interface DemoUser {
