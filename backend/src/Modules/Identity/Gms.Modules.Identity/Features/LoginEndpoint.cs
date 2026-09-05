@@ -1,6 +1,7 @@
 using Gms.BuildingBlocks;
 using Gms.Modules.Identity.Domain;
 using Gms.Modules.Identity.Infrastructure;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 
 namespace Gms.Modules.Identity.Features;
@@ -43,6 +44,7 @@ public static class LoginEndpoint
                 return Results.Ok(new LoginResponse(token, expiresMinutes * 60, user.ToDto()));
             })
             .AllowAnonymous()
+            .RequireRateLimiting(Policies.AuthLoginRateLimit) // Phase 9: per-IP brute-force guard
             .WithTags("Identity")
             .WithSummary("Login with username and password, receive a JWT.");
     }

@@ -56,10 +56,9 @@ public static class RefundMemberPackageEndpoint
                 }
                 else
                 {
-                    var remaining = Math.Max(0, memberPackage.SessionsTotal - memberPackage.SessionsUsed);
-                    amount = memberPackage.SessionsTotal > 0
-                        ? memberPackage.PricePaidToman * remaining / memberPackage.SessionsTotal
-                        : 0;
+                    // Default: pro-rata value of the unused sessions (floor, integer Toman).
+                    amount = SalesMath.ProRataRefundDefault(
+                        memberPackage.PricePaidToman, memberPackage.SessionsTotal, memberPackage.SessionsUsed);
                 }
 
                 // Refund mirrors the ORIGINAL receipt's payment method (locked decision #5).

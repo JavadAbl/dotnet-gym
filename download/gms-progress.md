@@ -1,10 +1,12 @@
 # GMS Progress Tracker
 
-Weighted total: **▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░ 95%**
+Weighted total: **▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓ 100%**
 
-> Updated: 2026-09-05 — Phase 8 (Frontend completion) delivered end-to-end and browser-verified.
-> Role-aware dashboards for all four roles, today/this-month reports composed from per-module
-> summaries, a member file that finally shows coach + buffet history, Jalali/RTL polish.
+> Updated: 2026-09-05 — Phase 9 (Hardening) delivered: EF Core migrations replace EnsureCreated
+> (safe baseline for legacy dev DBs), rate limiting, request audit log, core-invariant test suite,
+> deployment guide. All 10 phases complete — v1 roadmap finished.
+
+> Prior: Phase 8 (Frontend completion) delivered end-to-end and browser-verified.
 
 ## Phase 0 — Solution skeleton (8%) ✅ rebuilt
 - [x] `Gms.sln` + BuildingBlocks + Api host + 9 modules with `.Public` contract projects
@@ -84,5 +86,11 @@ Weighted total: **▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░ 95%*
 - [x] Demo adapter kept contract-exact: demoGetSalesSummary mirrors the endpoint (UTC day/month windows, branch scoping, payment split); DB key bumped to v8 for fresh seeds
 - [x] Verified: eslint/tsc/next build clean; browser E2E — admin overview 8/8 KPIs exact (4 members, 2 present, 3 active packages, 0 today revenue, wallet held 8,870,000 = Σ balances, buffet 170,000) and reports tab numbers reconciled to the receipt list; coach.north sees own 2/2/4/1 KPIs with no reports tab; buffet.north sees North-scoped 1/1/1/15,000; member sheet shows coach + buffet history for Maryam and Ali; fa RTL + EN + mobile 390px; zero console errors. Screenshots: download/gms-phase8-dashboard-admin-fa.png, gms-phase8-reports-admin-fa.png, gms-phase8-mobile.png
 
-## Phase 9 — Hardening (5%) ⬜
-- [ ] EF migrations replace EnsureCreated · rate limiting · audit log · tests · deploy docs
+## Phase 9 — Hardening (5%) ✅
+- [x] **EF migrations replace EnsureCreated**: hand-authored Initial migration + model snapshot for all 10 contexts (9 modules + new Audit DB, `20260905080001…10_Initial`); boot bootstrap per DB — fresh file → `MigrateAsync`; legacy EnsureCreated file (tables, no history) → migrations **stamped as applied** (baseline, schema untouched); already-migrated → applies pending. History table name/product version match EF conventions (8.0.11)
+- [x] Catalog model made deterministic before shipping migrations: explicit in-module FKs (`PackageBranchAccess.PackageId → Packages`, `BuffetProductPrices.ProductId → BuffetProducts`, cascade) instead of convention shadow FKs — EnsureCreated output now matches the migrations exactly
+- [x] **Rate limiting**: global token bucket (200 tokens, +100/10 s) per userId/IP + strict per-IP fixed window (10/min) on `POST /api/v1/identity/login` (brute-force guard); 429 → RFC7807 ProblemDetails with `errorCode: rate_limit.exceeded` + `Retry-After`; limits ops-tunable via `RateLimiting` appsettings section
+- [x] **Audit log**: every mutating request (POST/PUT/PATCH/DELETE under `/api`) recorded to `gms-audit.db` (own SQLite file) — user/role/branch from JWT, method/path/status/duration/IP + password-redacted JSON body snapshot (64 KB capture cap, 4 KB store cap, non-JSON skipped); audit failures swallowed + logged (never break the API); `GET /api/v1/audit` paged trail (Admin) with action/userId filters
+- [x] **Tests**: `backend/tests/Gms.Core.Tests` (xUnit, wired into Gms.sln) — wallet ledger BalanceAfter chain + insufficient-balance/non-positive guards + account-on-demand (real SQLite via `IWalletModule`), atomic session consumption (last-session oversell rejected, frozen/refunded/expired denied), pro-rata refund math incl. floor cases, freeze-shift math (ceiling, clock-skew safe), PBKDF2 hasher roundtrip/malformed-hash rejection; `SalesMath` extracted from endpoints (behavior-preserving) as the tested pure core
+- [x] **Deploy docs**: `download/gms-deployment.md` (config checklist, migration/baseline behavior, WAL backups, publish + systemd + reverse proxy, smoke checklist, audit ops, rollback) + backend README refreshed (migration table, `dotnet ef` workflow via `.config/dotnet-tools.json`, test command)
+- [x] Verified: static review pass over all C# changes (usings, API signatures, EF translation-safe projections); JSON configs valid; no frontend changes needed (Phase 9 scope is backend/ops); frontend build artifacts untouched at Phase 8 state

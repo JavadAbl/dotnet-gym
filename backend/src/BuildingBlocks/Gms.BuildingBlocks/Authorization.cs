@@ -24,4 +24,10 @@ public static class Policies
     /// reception (desk sales) and admin. Coaches have no counter duties.
     /// </summary>
     public const string Counter = "CounterStaff";
+
+    /// <summary>
+    /// Phase 9: rate limiter policy guarding the login endpoint — a strict per-IP fixed window
+    /// (brute-force guard) applied on top of the global limiter.
+    /// </summary>
+    public const string AuthLoginRateLimit = "auth-login";
 }

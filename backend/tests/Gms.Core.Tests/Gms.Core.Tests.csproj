@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Gms.Core.Tests</RootNamespace>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="8.0.11" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\BuildingBlocks\Gms.BuildingBlocks\Gms.BuildingBlocks.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Identity\Gms.Modules.Identity\Gms.Modules.Identity.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Sales\Gms.Modules.Sales\Gms.Modules.Sales.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Sales\Gms.Modules.Sales.Public\Gms.Modules.Sales.Public.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Wallet\Gms.Modules.Wallet\Gms.Modules.Wallet.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Wallet\Gms.Modules.Wallet.Public\Gms.Modules.Wallet.Public.csproj" />
+  </ItemGroup>
+
+</Project>

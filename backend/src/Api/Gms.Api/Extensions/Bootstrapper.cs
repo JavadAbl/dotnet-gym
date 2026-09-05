@@ -1,25 +1,63 @@
+using System.Data;
+using Gms.Api.Infrastructure.Auditing;
 using Gms.BuildingBlocks;
 using Gms.Modules.Attendance;
+using Gms.Modules.Attendance.Infrastructure;
 using Gms.Modules.Branches;
+using Gms.Modules.Branches.Infrastructure;
 using Gms.Modules.Branches.Public;
+using Gms.Modules.Buffet;
+using Gms.Modules.Buffet.Infrastructure;
 using Gms.Modules.Catalog;
+using Gms.Modules.Catalog.Infrastructure;
 using Gms.Modules.Coaching;
+using Gms.Modules.Coaching.Infrastructure;
 using Gms.Modules.Identity;
+using Gms.Modules.Identity.Infrastructure;
 using Gms.Modules.Members;
+using Gms.Modules.Members.Infrastructure;
 using Gms.Modules.Sales;
+using Gms.Modules.Sales.Infrastructure;
 using Gms.Modules.Wallet;
+using Gms.Modules.Wallet.Infrastructure;
 using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.EntityFrameworkCore;
 
 namespace Gms.Api.Extensions;
 
-/// <summary>Startup database bootstrap: WAL pragmas, EnsureCreated, seeders (deterministic order).</summary>
+/// <summary>Startup database bootstrap: WAL pragmas, migrations (with legacy baselining), seeders.</summary>
 internal static class Bootstrapper
 {
+    private const string MigrationsHistoryTable = "__EFMigrationsHistory";
+    private const string ProductVersion = "8.0.11";
+
     public static async Task InitializeDatabasesAsync(IServiceProvider services, IReadOnlyDictionary<string, string> connectionStrings)
     {
         foreach (var connectionString in connectionStrings.Values)
         {
             await SqliteBootstrapper.EnforceWalAsync(connectionString);
+        }
+
+        var logger = services.GetRequiredService<ILoggerFactory>().CreateLogger("Gms.Bootstrapper");
+
+        // Phase 9: schema creation moved from EnsureCreated to EF Core migrations. Every context
+        // (9 modules + audit) is brought up via MigrateAsync; databases created by earlier
+        // EnsureCreated builds (tables present, no migrations history) are BASELINED — the
+        // defined migrations are stamped as applied so the schema is never re-created.
+        using (var scope = services.CreateScope())
+        {
+            var provider = scope.ServiceProvider;
+
+            await InitializeDatabaseAsync<BranchesDbContext>(provider, logger, "Branches");
+            await InitializeDatabaseAsync<IdentityDbContext>(provider, logger, "Identity");
+            await InitializeDatabaseAsync<CatalogDbContext>(provider, logger, "Catalog");
+            await InitializeDatabaseAsync<MembersDbContext>(provider, logger, "Members");
+            await InitializeDatabaseAsync<WalletDbContext>(provider, logger, "Wallet");
+            await InitializeDatabaseAsync<SalesDbContext>(provider, logger, "Sales");
+            await InitializeDatabaseAsync<AttendanceDbContext>(provider, logger, "Attendance");
+            await InitializeDatabaseAsync<CoachingDbContext>(provider, logger, "Coaching");
+            await InitializeDatabaseAsync<BuffetDbContext>(provider, logger, "Buffet");
+            await InitializeDatabaseAsync<AuditDbContext>(provider, logger, "Audit");
         }
 
         // Seed order matters: branches → identity (links operators) → catalog (grants access)
@@ -47,6 +85,112 @@ internal static class Bootstrapper
         await AttendanceSeeder.SeedAsync(services);
         await CoachingSeeder.SeedAsync(services);
         await BuffetSeeder.SeedAsync(services);
+    }
+
+    /// <summary>
+    /// Brings one database up to date via EF Core migrations. Safe upgrade paths:
+    /// • fresh database            → MigrateAsync applies the Initial migration;
+    /// • legacy EnsureCreated DB   → migrations stamped as applied (baseline), schema untouched;
+    /// • already-migrated DB       → MigrateAsync applies any pending migrations (no-op today).
+    /// </summary>
+    private static async Task InitializeDatabaseAsync<TContext>(
+        IServiceProvider provider, ILogger logger, string label)
+        where TContext : DbContext
+    {
+        var context = provider.GetRequiredService<TContext>();
+        var migrations = context.Database.GetMigrations().ToList();
+
+        if (migrations.Count == 0)
+        {
+            // No migrations shipped for this context — fall back to the dev bootstrap.
+            await context.Database.EnsureCreatedAsync();
+            logger.LogInformation("[{Module}] database created via EnsureCreated (no migrations defined).", label);
+            return;
+        }
+
+        var connection = context.Database.GetDbConnection();
+        var openedHere = false;
+        try
+        {
+            if (connection.State != ConnectionState.Open)
+            {
+                await connection.OpenAsync();
+                openedHere = true;
+            }
+
+            var hasHistory = await TableExistsAsync(connection, MigrationsHistoryTable);
+            var hasUserTables = await HasUserTablesAsync(connection);
+
+            if (hasUserTables && !hasHistory)
+            {
+                await StampMigrationsAsync(connection, migrations);
+                logger.LogInformation(
+                    "[{Module}] legacy EnsureCreated database baselined: {Count} migration(s) stamped as applied.",
+                    label, migrations.Count);
+            }
+        }
+        finally
+        {
+            if (openedHere)
+            {
+                await connection.CloseAsync();
+            }
+        }
+
+        await context.Database.MigrateAsync();
+        logger.LogInformation("[{Module}] database up to date ({Count} migration(s) defined).", label, migrations.Count);
+    }
+
+    private static async Task<bool> TableExistsAsync(DbConnection connection, string tableName)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = $name";
+        var parameter = command.CreateParameter();
+        parameter.ParameterName = "$name";
+        parameter.Value = tableName;
+        command.Parameters.Add(parameter);
+        return Convert.ToInt64(await command.ExecuteScalarAsync()) > 0;
+    }
+
+    private static async Task<bool> HasUserTablesAsync(DbConnection connection)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText =
+            "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' " +
+            "AND name NOT LIKE 'sqlite_%' AND name <> $history";
+        var parameter = command.CreateParameter();
+        parameter.ParameterName = "$history";
+        parameter.Value = MigrationsHistoryTable;
+        command.Parameters.Add(parameter);
+        return Convert.ToInt64(await command.ExecuteScalarAsync()) > 0;
+    }
+
+    /// <summary>
+    /// Baselines a legacy EnsureCreated database: its schema was generated from the current model,
+    /// which matches the final state of the shipped migrations — so every migration is recorded
+    /// in the history table and MigrateAsync becomes a no-op. Migration ids are compile-time
+    /// constants owned by this solution (no user input), so literal interpolation is safe.
+    /// </summary>
+    private static async Task StampMigrationsAsync(DbConnection connection, IReadOnlyList<string> migrationIds)
+    {
+        await using var createHistory = connection.CreateCommand();
+        createHistory.CommandText =
+            $"""
+            CREATE TABLE IF NOT EXISTS "{MigrationsHistoryTable}" (
+                "MigrationId" TEXT NOT NULL CONSTRAINT "PK___EFMigrationsHistory" PRIMARY KEY,
+                "ProductVersion" TEXT NOT NULL
+            );
+            """;
+        await createHistory.ExecuteNonQueryAsync();
+
+        foreach (var migrationId in migrationIds)
+        {
+            await using var insert = connection.CreateCommand();
+            insert.CommandText =
+                $"INSERT OR IGNORE INTO \"{MigrationsHistoryTable}\" (\"MigrationId\", \"ProductVersion\") " +
+                $"VALUES ('{migrationId}', '{ProductVersion}')";
+            await insert.ExecuteNonQueryAsync();
+        }
     }
 }
 

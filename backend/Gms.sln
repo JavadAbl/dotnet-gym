@@ -42,6 +42,10 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Gms.Modules.Wallet", "src\M
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Gms.Modules.Wallet.Public", "src\Modules\Wallet\Gms.Modules.Wallet.Public\Gms.Modules.Wallet.Public.csproj", "{6F9A2B01-1C3D-4E5F-8A9B-000000000014}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{6F9A2B01-1C3D-4E5F-8A9B-000000000015}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Gms.Core.Tests", "tests\Gms.Core.Tests\Gms.Core.Tests.csproj", "{6F9A2B01-1C3D-4E5F-8A9B-000000000016}"
+EndProject
 Global
         GlobalSection(SolutionConfigurationPlatforms) = preSolution
                 Debug|Any CPU = Debug|Any CPU
@@ -128,6 +132,10 @@ Global
                 {6F9A2B01-1C3D-4E5F-8A9B-000000000014}.Debug|Any CPU.Build.0 = Debug|Any CPU
                 {6F9A2B01-1C3D-4E5F-8A9B-000000000014}.Release|Any CPU.ActiveCfg = Release|Any CPU
                 {6F9A2B01-1C3D-4E5F-8A9B-000000000014}.Release|Any CPU.Build.0 = Release|Any CPU
+                {6F9A2B01-1C3D-4E5F-8A9B-000000000016}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+                {6F9A2B01-1C3D-4E5F-8A9B-000000000016}.Debug|Any CPU.Build.0 = Debug|Any CPU
+                {6F9A2B01-1C3D-4E5F-8A9B-000000000016}.Release|Any CPU.ActiveCfg = Release|Any CPU
+                {6F9A2B01-1C3D-4E5F-8A9B-000000000016}.Release|Any CPU.Build.0 = Release|Any CPU
         EndGlobalSection
         GlobalSection(SolutionProperties) = preSolution
                 HideSolutionNode = FALSE

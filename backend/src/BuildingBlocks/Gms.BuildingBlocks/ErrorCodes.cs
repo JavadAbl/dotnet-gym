@@ -77,4 +77,7 @@ public static class ErrorCodes
     public const string BuffetInvalidQuantity = "buffet.invalid_quantity";
     public const string BuffetProductInactive = "buffet.product_inactive";
     public const string BuffetProductNotPricedInBranch = "buffet.product_not_priced_in_branch";
+
+    // rate limiting (Phase 9)
+    public const string RateLimitExceeded = "rate_limit.exceeded";
 }

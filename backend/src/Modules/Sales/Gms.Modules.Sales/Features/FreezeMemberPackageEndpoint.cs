@@ -98,11 +98,8 @@ public static class FreezeMemberPackageEndpoint
                 var frozenDays = 0;
                 if (openFreeze is not null)
                 {
-                    frozenDays = (int)Math.Ceiling((now - openFreeze.FrozenAtUtc).TotalDays);
-                    if (frozenDays < 0)
-                    {
-                        frozenDays = 0;
-                    }
+                    // Ceiling of the elapsed frozen span, never negative (SalesMath pins the formula).
+                    frozenDays = SalesMath.FrozenDays(openFreeze.FrozenAtUtc, now);
 
                     openFreeze.UnfrozenAtUtc = now;
                     openFreeze.FrozenDays = frozenDays;
