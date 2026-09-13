@@ -11,13 +11,17 @@ import {
 import {
   demoCreateMember,
   demoCreatePackage,
+  demoCreateUser,
   demoGetMember,
   demoListBranches,
   demoListPackages,
   demoListProducts,
+  demoListUsers,
   demoLogin,
+  demoResetUserPassword,
   demoSearchMembers,
   demoSetMemberStatus,
+  demoSetUserStatus,
   demoUpdateMember,
 } from "./demo-store";
 import {
@@ -75,6 +79,7 @@ import type {
   CreateProductRequest,
   CreatePackageRequest,
   CreateRecordRequest,
+  CreateUserRequest,
   ExercisePackage,
   LoginResponse,
   Member,
@@ -90,6 +95,7 @@ import type {
   Receipt,
   RefundRequest,
   SalesSummary,
+  SystemUser,
   TopUpRequest,
   TopUpResponse,
   TrainingPlan,
@@ -166,6 +172,37 @@ export async function login(username: string, password: string): Promise<LoginRe
   return request<LoginResponse>("/identity/login", {
     method: "POST",
     body: JSON.stringify({ username, password }),
+  });
+}
+
+// ---------------------------------------------------------------- identity — user admin (v2.1, admin only)
+
+export function listUsers(): Promise<SystemUser[]> {
+  if (isDemoMode) return demoListUsers();
+  return request<SystemUser[]>("/identity/users");
+}
+
+export function createUser(req: CreateUserRequest): Promise<SystemUser> {
+  if (isDemoMode) return demoCreateUser(req);
+  return request<SystemUser>("/identity/users", {
+    method: "POST",
+    body: JSON.stringify(req),
+  });
+}
+
+export function setUserStatus(id: string, isActive: boolean): Promise<SystemUser> {
+  if (isDemoMode) return demoSetUserStatus(id, isActive);
+  return request<SystemUser>(`/identity/users/${id}/status`, {
+    method: "POST",
+    body: JSON.stringify({ isActive }),
+  });
+}
+
+export function resetUserPassword(id: string, newPassword: string): Promise<SystemUser> {
+  if (isDemoMode) return demoResetUserPassword(id, newPassword);
+  return request<SystemUser>(`/identity/users/${id}/password`, {
+    method: "POST",
+    body: JSON.stringify({ newPassword }),
   });
 }
 

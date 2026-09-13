@@ -32,6 +32,8 @@ export function LoginView() {
     } catch (err) {
       if (err instanceof GmsApiError && err.errorCode === "identity.invalid_credentials") {
         setError(t("login.invalid"));
+      } else if (err instanceof GmsApiError && err.errorCode === "identity.user_inactive") {
+        setError(t("login.inactive"));
       } else {
         setError(t("login.error"));
       }

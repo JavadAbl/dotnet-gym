@@ -518,6 +518,26 @@ export interface CreatePackageRequest {
   isActive?: boolean;
 }
 
+/** v2.1 — operator account as returned by the identity user-admin endpoints. */
+export interface SystemUser {
+  id: string;
+  username: string;
+  displayName: string;
+  role: Role;
+  branchId: string | null;
+  isActive: boolean;
+  createdAtUtc: string;
+}
+
+export interface CreateUserRequest {
+  username: string;
+  password: string;
+  displayName: string;
+  role: Role;
+  branchId?: string | null;
+  isActive?: boolean;
+}
+
 export interface UpdateProductRequest {
   nameEn: string;
   nameFa: string;

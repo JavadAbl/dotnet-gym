@@ -13,6 +13,9 @@ public static class ErrorCodes
     public const string IdentityInvalidCredentials = "identity.invalid_credentials";
     public const string IdentityUserInactive = "identity.user_inactive";
     public const string IdentityDuplicateUsername = "identity.username.duplicate";
+    public const string IdentityUserNotFound = "identity.user.not_found";
+    public const string IdentityUserSelfDeactivate = "identity.user.self_deactivate";
+    public const string IdentityUserLastAdmin = "identity.user.last_admin";
 
     // branches
     public const string BranchNotFound = "branch.not_found";

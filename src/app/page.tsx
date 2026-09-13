@@ -7,6 +7,7 @@ import type { Branch, ExercisePackage, Member, MemberPackage, MemberStatus } fro
 import { AppShell, type ViewKey } from "@/components/gms/app-shell";
 import { AttendanceView } from "@/components/gms/attendance-view";
 import { BranchesView } from "@/components/gms/branches-view";
+import { UsersView } from "@/components/gms/users-view";
 import { BuffetView } from "@/components/gms/buffet-view";
 import { CoachingView } from "@/components/gms/coaching-view";
 import { DashboardView } from "@/components/gms/dashboard-view";
@@ -184,6 +185,7 @@ function Workspace() {
       {view === "buffet" ? <BuffetView branches={branches} refreshSignal={buffetRefresh} /> : null}
       {view === "packages" ? <PackagesView /> : null}
       {view === "branches" ? <BranchesView /> : null}
+      {view === "users" ? <UsersView /> : null}
 
       <MemberFormDialog
         open={formOpen}

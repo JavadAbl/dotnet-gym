@@ -254,3 +254,21 @@ Stage Summary:
 - Package creation is now fully UI-driven for admins (both kinds) — no more seeds/Swagger-only catalog management; demo adapter stays contract-exact with POST /catalog/packages.
 - No schema, contract, or backend changes; legacy v1/v2 databases unaffected.
 - Remaining v2.1 backlog (not requested yet): package edit/deactivate UI (backend has no PUT /catalog/packages either), and the optional "buy private package" shortcut inside the assign dialog's amber warning.
+
+---
+Task ID: V2-3 (v2.2 — System User Management)
+Agent: main (Super Z)
+Task: "there is no way to manage system users" — add admin management for operator accounts (list/create/activate-deactivate/reset password) across backend, demo adapter and UI
+
+Work Log:
+- Re-conformed baseline: Identity module had only login + /me; AppUser already carried IsActive (login already 403'd inactive users) → no migration needed.
+- Backend (static review — no SDK in sandbox): ErrorCodes += identity.user.not_found / self_deactivate / last_admin; new Features/UserAdminRules.cs (pure, GeneratedRegex username shape, password/display/role rules, CheckDeactivate self+last-active-admin guards) + Features/UserAdminEndpoints.cs (GET/POST /api/v1/identity/users, POST {id}/status, POST {id}/password — all Policies.Admin, branch check via IBranchesModule.ExistsAsync, duplicate username 409); AppUserMappings.ToAdminDto (incl. IsActive + CreatedAtUtc); registered in MapIdentityEndpoints.
+- Tests: UserAdminRulesTests (xUnit) — username shapes/normalization, password minimums, 4-role whitelist, all five deactivation guard scenarios; Identity csproj reference already present in test project.
+- Frontend: types SystemUser/CreateUserRequest; api listUsers/createUser/setUserStatus/resetUserPassword (real paths /identity/users…); demo-store — DemoUser.isActive seeds + DB v10, inactive-login 403, readSessionUserId() decodes the demo token for the self guard, demoCreateUser/demoSetUserStatus/demoResetUserPassword mirror rules 1:1; new user-dialog.tsx (UserCreateDialog + UserResetPasswordDialog) and users-view.tsx (search + table + role badges + status chips + row menu + deactivate AlertDialog); app-shell — "users" ViewKey + UserCog nav item (setup group, staff:["admin"]) and the previously-unwired staff arrays now filter desktop+mobile nav by role; page.tsx renders UsersView; login-view maps identity.user_inactive → dedicated message; i18n fa/en ~45 keys (users.*, errors.identity.*, login.inactive, nav.users).
+- Verified: bun run lint clean; tsc src/ 0 errors; next build clean; browser E2E — admin nav + table (6 seeds, Jalali dates), create reception.west (gated submit, toast, row), deactivate reception.south (confirm), own-row deactivate disabled, reset reception.west password → login OK with new password (Users nav hidden for that reception session), deactivated reception.south blocked at login (no session, localized message); zero console errors. Screenshots: download/gms-v2-users-admin-fa.png, gms-v2-users-blocked-login.png.
+- Docs: gms-progress.md gained "v2.2 — System User Management" (all boxes checked); this entry.
+
+Stage Summary:
+- Operator accounts are fully manageable from the UI (admin only) with the safety rails that matter: no self-deactivation, no last-admin lockout, no duplicate usernames, inactive users cannot sign in.
+- xUnit suite must be run on an SDK machine: `cd backend && dotnet test Gms.sln` (UserAdminRulesTests is new).
+- Remaining ideas (not requested): edit display-name/branch, per-user audit trail link (audit middleware already captures the POSTs), force-change-password flag on first login.

@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Activity, ClipboardList, Coffee, Dumbbell, LayoutDashboard, Languages, LogOut, MapPin, ReceiptText, ScanLine, Users, Wallet } from "lucide-react";
+import { Activity, ClipboardList, Coffee, Dumbbell, LayoutDashboard, Languages, LogOut, MapPin, ReceiptText, ScanLine, UserCog, Users, Wallet } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,7 +16,7 @@ import { isDemoMode } from "@/lib/gms/api";
 import type { Role } from "@/lib/gms/types";
 import { useAuth, useI18n } from "./providers";
 
-export type ViewKey = "dashboard" | "members" | "attendance" | "sales" | "wallet" | "coaching" | "buffet" | "packages" | "branches";
+export type ViewKey = "dashboard" | "members" | "attendance" | "sales" | "wallet" | "coaching" | "buffet" | "packages" | "branches" | "users";
 
 const NAV: Array<{ key: ViewKey; icon: React.ComponentType<{ className?: string }>; group: "operations" | "setup"; staff: Role[] }> = [
   { key: "dashboard", icon: LayoutDashboard, group: "operations", staff: ["admin", "reception", "buffet", "coach"] },
@@ -28,6 +28,7 @@ const NAV: Array<{ key: ViewKey; icon: React.ComponentType<{ className?: string 
   { key: "buffet", icon: Coffee, group: "operations", staff: ["admin", "reception", "buffet"] },
   { key: "packages", icon: Dumbbell, group: "setup", staff: ["admin", "reception", "buffet", "coach"] },
   { key: "branches", icon: MapPin, group: "setup", staff: ["admin", "reception", "buffet", "coach"] },
+  { key: "users", icon: UserCog, group: "setup", staff: ["admin"] },
 ];
 
 export function AppShell({
@@ -69,7 +70,7 @@ export function AppShell({
                 {group.label}
               </p>
               <div className="space-y-1">
-                {NAV.filter((item) => item.group === group.id).map((item) => {
+                {NAV.filter((item) => item.group === group.id && item.staff.includes(user.role)).map((item) => {
                   const Icon = item.icon;
                   const active = view === item.key;
                   return (
@@ -112,7 +113,7 @@ export function AppShell({
           <div className="flex h-14 items-center justify-between gap-3 px-4 md:px-6">
             {/* mobile nav */}
             <div className="flex items-center gap-1 md:hidden">
-              {NAV.map((item) => {
+              {NAV.filter((item) => item.staff.includes(user.role)).map((item) => {
                 const Icon = item.icon;
                 const active = view === item.key;
                 return (

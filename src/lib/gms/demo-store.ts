@@ -7,6 +7,7 @@ import type {
   Branch,
   BuffetProduct,
   CreatePackageRequest,
+  CreateUserRequest,
   ExercisePackage,
   LoginResponse,
   Member,
@@ -19,10 +20,11 @@ import type {
   PagedResult,
   PaymentMethod,
   Receipt,
+  SystemUser,
   WalletTransaction,
 } from "./types";
 
-const DB_KEY = "gms.demo.db.v9";
+const DB_KEY = "gms.demo.db.v10";
 const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
 
 interface DemoUser {
@@ -32,6 +34,7 @@ interface DemoUser {
   displayName: string;
   role: "admin" | "reception" | "buffet" | "coach";
   branchId?: string | null;
+  isActive: boolean;
 }
 
 interface DemoWalletAccount {
@@ -276,12 +279,12 @@ function seedDb(): DemoDb {
   const db: DemoDb = {
     seededAt: now,
     users: [
-      { id: uid(), username: "admin", password: "Admin@123", displayName: "مدیر سیستم", role: "admin", branchId: null },
-      { id: uid(), username: "reception.north", password: "Operator@123", displayName: "پذیرش — شعبه شمال", role: "reception", branchId: northId },
-      { id: uid(), username: "reception.south", password: "Operator@123", displayName: "پذیرش — شعبه جنوب", role: "reception", branchId: southId },
-      { id: uid(), username: "buffet.north", password: "Operator@123", displayName: "بوفه — شعبه شمال", role: "buffet", branchId: northId },
-      { id: uid(), username: "coach.north", password: "Operator@123", displayName: "مربی — شعبه شمال", role: "coach", branchId: northId },
-      { id: uid(), username: "coach.south", password: "Operator@123", displayName: "مربی — شعبه جنوب", role: "coach", branchId: southId },
+      { id: uid(), username: "admin", password: "Admin@123", displayName: "مدیر سیستم", role: "admin", branchId: null, isActive: true },
+      { id: uid(), username: "reception.north", password: "Operator@123", displayName: "پذیرش — شعبه شمال", role: "reception", branchId: northId, isActive: true },
+      { id: uid(), username: "reception.south", password: "Operator@123", displayName: "پذیرش — شعبه جنوب", role: "reception", branchId: southId, isActive: true },
+      { id: uid(), username: "buffet.north", password: "Operator@123", displayName: "بوفه — شعبه شمال", role: "buffet", branchId: northId, isActive: true },
+      { id: uid(), username: "coach.north", password: "Operator@123", displayName: "مربی — شعبه شمال", role: "coach", branchId: northId, isActive: true },
+      { id: uid(), username: "coach.south", password: "Operator@123", displayName: "مربی — شعبه جنوب", role: "coach", branchId: southId, isActive: true },
     ],
     branches: [
       { id: northId, nameEn: "North Branch", nameFa: "شعبه شمال", city: "تهران", phoneNumber: "021-22000001", isActive: true },
@@ -1160,11 +1163,133 @@ export async function demoLogin(username: string, password: string): Promise<Log
   if (!user || user.password !== password) {
     throw new GmsApiError(401, "identity.invalid_credentials", "Invalid username or password.");
   }
+  if (!user.isActive) {
+    throw new GmsApiError(403, "identity.user_inactive", "This account has been deactivated.");
+  }
   return {
     accessToken: `demo.${btoa(unescape(encodeURIComponent(user.id)))}.${Date.now() + SESSION_TTL_MS}.sig`,
     expiresInSeconds: SESSION_TTL_MS / 1000,
     user: { id: user.id, username: user.username, displayName: user.displayName, role: user.role, branchId: user.branchId ?? null },
   };
+}
+
+// ---------------------------------------------------------------- identity — user admin (v2.1)
+
+/** Decodes the acting user's id from the localStorage demo session token (guards rely on it). */
+function readSessionUserId(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem("gms.session");
+    if (!raw) return null;
+    const session = JSON.parse(raw) as { token: string; expiresAt: number };
+    if (session.expiresAt <= Date.now()) return null;
+    const payload = session.token.split(".")[1];
+    return payload ? decodeURIComponent(escape(atob(payload))) : null;
+  } catch {
+    return null;
+  }
+}
+
+const toSystemUser = (u: DemoUser): SystemUser => ({
+  id: u.id,
+  username: u.username,
+  displayName: u.displayName,
+  role: u.role,
+  branchId: u.branchId ?? null,
+  isActive: u.isActive,
+  createdAtUtc: new Date().toISOString(),
+});
+
+export async function demoListUsers(): Promise<SystemUser[]> {
+  await wait(140);
+  return loadDb().users.map(toSystemUser);
+}
+
+/** Mirrors POST /identity/users validation 1:1 (UserAdminRules). */
+export async function demoCreateUser(req: CreateUserRequest): Promise<SystemUser> {
+  await wait(260);
+  const db = loadDb();
+
+  const errors: Record<string, string[]> = {};
+  const username = req.username?.trim().toLowerCase() ?? "";
+  if (!/^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$/.test(username) || username.length < 3 || username.length > 64) {
+    errors.username = ["Must be 3-64 characters; lowercase letters, digits, dot, dash, underscore only."];
+  }
+  if (!req.password || req.password.length < 8 || req.password.length > 128) {
+    errors.password = ["Must be 8-128 characters."];
+  }
+  if (!req.displayName?.trim() || req.displayName.trim().length > 128) {
+    errors.displayName = ["Required, max 128 characters."];
+  }
+  if (!["admin", "reception", "buffet", "coach"].includes(req.role)) {
+    errors.role = ["Must be one of: admin, reception, buffet, coach."];
+  }
+  if (req.branchId && !db.branches.some((b) => b.id === req.branchId && b.isActive)) {
+    errors.branchId = ["Unknown or inactive branch."];
+  }
+  if (Object.keys(errors).length === 0 && db.users.some((u) => u.username === username)) {
+    throw new GmsApiError(409, "identity.username.duplicate", "This username is already taken.");
+  }
+  if (Object.keys(errors).length > 0) {
+    throw new GmsApiError(400, "validation.failed", "One or more validation errors occurred.", errors);
+  }
+
+  const user: DemoUser = {
+    id: uid(),
+    username,
+    password: req.password,
+    displayName: req.displayName.trim(),
+    role: req.role,
+    branchId: req.branchId ?? null,
+    isActive: req.isActive ?? true,
+  };
+  db.users.push(user);
+  saveDb(db);
+  return toSystemUser(user);
+}
+
+/** Mirrors POST /identity/users/{id}/status — self + last-active-admin deactivation guards. */
+export async function demoSetUserStatus(id: string, isActive: boolean): Promise<SystemUser> {
+  await wait(220);
+  const db = loadDb();
+  const user = db.users.find((u) => u.id === id);
+  if (!user) throw new GmsApiError(404, "identity.user.not_found", "User not found.");
+
+  if (!isActive) {
+    const sessionId = readSessionUserId();
+    if (sessionId && sessionId === user.id) {
+      throw new GmsApiError(409, "identity.user.self_deactivate", "You cannot deactivate your own account.");
+    }
+    if (user.role === "admin" && user.isActive) {
+      const activeAdmins = db.users.filter((u) => u.isActive && u.role === "admin").length;
+      if (activeAdmins <= 1) {
+        throw new GmsApiError(409, "identity.user.last_admin", "At least one active admin must remain.");
+      }
+    }
+  }
+
+  user.isActive = isActive;
+  saveDb(db);
+  return toSystemUser(user);
+}
+
+/** Mirrors POST /identity/users/{id}/password. */
+export async function demoResetUserPassword(id: string, newPassword: string): Promise<SystemUser> {
+  await wait(240);
+  const db = loadDb();
+  const user = db.users.find((u) => u.id === id);
+  if (!user) throw new GmsApiError(404, "identity.user.not_found", "User not found.");
+  if (!newPassword || newPassword.length < 8 || newPassword.length > 128) {
+    throw new GmsApiError(
+      400,
+      "validation.failed",
+      "One or more validation errors occurred.",
+      { newPassword: ["Must be 8-128 characters."] },
+    );
+  }
+  user.password = newPassword;
+  saveDb(db);
+  return toSystemUser(user);
 }
 
 // ---------------------------------------------------------------- branches / catalog

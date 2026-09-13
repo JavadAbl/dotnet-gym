@@ -19,6 +19,7 @@ public static class IdentityModule
     {
         LoginEndpoint.Map(app);
         MeEndpoint.Map(app);
+        UserAdminEndpoints.Map(app);
         return app;
     }
 }
