@@ -6,6 +6,7 @@ import type {
   AttendanceEntry,
   Branch,
   BuffetProduct,
+  CreatePackageRequest,
   ExercisePackage,
   LoginResponse,
   Member,
@@ -1176,6 +1177,59 @@ export async function demoListBranches(): Promise<Branch[]> {
 export async function demoListPackages(): Promise<ExercisePackage[]> {
   await wait(140);
   return loadDb().packages;
+}
+
+/** v2 — admin package creation; mirrors POST /catalog/packages validation exactly. */
+export async function demoCreatePackage(req: CreatePackageRequest): Promise<ExercisePackage> {
+  await wait(260);
+  const db = loadDb();
+
+  const errors: Record<string, string[]> = {};
+  if (!req.nameEn?.trim() || req.nameEn.trim().length > 128) {
+    errors.nameEn = ["Required, max 128 characters."];
+  }
+  if (!req.nameFa?.trim() || req.nameFa.trim().length > 128) {
+    errors.nameFa = ["Required, max 128 characters."];
+  }
+  if (!Number.isInteger(req.sessionsCount) || req.sessionsCount < 1 || req.sessionsCount > 1000) {
+    errors.sessionsCount = ["Must be between 1 and 1000."];
+  }
+  if (!Number.isInteger(req.durationDays) || req.durationDays < 1 || req.durationDays > 3650) {
+    errors.durationDays = ["Must be between 1 and 3650."];
+  }
+  if (!Number.isInteger(req.priceToman) || req.priceToman <= 0) {
+    errors.priceToman = ["Must be a positive integer amount of Toman."];
+  }
+  if (!Array.isArray(req.branchIds) || req.branchIds.length === 0) {
+    errors.branchIds = ["At least one branch must be granted."];
+  }
+  const distinctBranchIds = [...new Set(req.branchIds ?? [])];
+  for (const branchId of distinctBranchIds) {
+    if (!db.branches.some((b) => b.id === branchId && b.isActive)) {
+      errors[`branchIds[${branchId}]`] = ["Unknown or inactive branch."];
+    }
+  }
+  if (req.kind !== "Exercise" && req.kind !== "PrivateCoaching") {
+    errors.kind = ["Exercise or PrivateCoaching are the only accepted values."];
+  }
+  if (Object.keys(errors).length > 0) {
+    throw new GmsApiError(400, "validation.failed", "One or more validation errors occurred.", errors);
+  }
+
+  const pkg: ExercisePackage = {
+    id: uid(),
+    nameEn: req.nameEn.trim(),
+    nameFa: req.nameFa.trim(),
+    kind: req.kind,
+    sessionsCount: req.sessionsCount,
+    durationDays: req.durationDays,
+    priceToman: req.priceToman,
+    isActive: req.isActive ?? true,
+    branchIds: distinctBranchIds,
+  };
+  db.packages.push(pkg);
+  saveDb(db);
+  return pkg;
 }
 
 export async function demoListProducts(branchId?: string): Promise<BuffetProduct[]> {

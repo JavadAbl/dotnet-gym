@@ -233,3 +233,24 @@ Stage Summary:
 - v2 delivered end-to-end with strict module discipline (all cross-module access via ISalesModule/ICatalogModule contracts; ids stored, zero cross-module JOINs/FKs; money long Toman; ProblemDetails + errorCode; UTC storage / Jalali display; single payment method per receipt).
 - Key invariants pinned: kind isolation (gym entry ⇎ coaching sessions), atomic FEFO consumption, kind snapshot immutability, baseliner correctness for legacy DBs.
 - Suggested next: rebuild pre-v2 legacy dev DBs is NOT required anymore (baseliner applies v2 columns), but re-verify one legacy boot locally; consider an admin UI tab for creating packages (currently seeds/Swagger only); optional "buy private package" shortcut inside the assign dialog's amber warning.
+
+---
+Task ID: V2-2 (v2.1 — Package Creation UI)
+Agent: main (Super Z)
+Task: Add the missing "create package" admin UI — worklog V2-1's suggested follow-up ("consider an admin UI tab for creating packages, currently seeds/Swagger only"); user reported no create button for packages
+
+Work Log:
+- Confirmed backend POST /api/v1/catalog/packages (Admin, CreatePackageRequest incl. Kind) already shipped in V2-1 — only the frontend entry point was missing.
+- demo-store.ts: `demoCreatePackage` mirrors endpoint validation 1:1 (names ≤128, sessions 1–1000, days 1–3650, positive Toman price, ≥1 branch, per-branch `branchIds[i]` unknown/inactive errors, kind whitelist) → GmsApiError(400, validation.failed, fieldErrors); persists to demo DB (v9), distinct branch ids.
+- api.ts: `createPackage()` — demo adapter or real POST /catalog/packages; types already had CreatePackageRequest.
+- package-dialog.tsx (new): bilingual names (fa RTL input), kind explainer cards + live PackageKindBadge, sessions/days/price numeric inputs, active-branch checkbox grants, Active switch, canSubmit gate = client-side copy of backend invariants, GmsApiError fieldErrors mapped inline.
+- packages-view.tsx: admin-only "New package" header button (useAuth role === admin, same pattern as buffet product dialog); header + filter chips always render (empty state no longer hides the entry point); inactive badge chip; on save → toast(name) + kind filter auto-switch + refetch.
+- Refactor: PackageKindBadge → package-kind-badge.tsx (avoids packages-view ↔ package-dialog circular import; re-exported from packages-view so member-detail-sheet/sell-package-dialog/sales-view imports stay untouched).
+- i18n.ts: 18 fa/en keys (packages.create*, packages.form.*, packages.created with {name}, packages.inactive).
+- Verified: bun run lint clean; tsc --noEmit → 0 errors under src/ (examples//skills/ noise pre-existing); next build clean; browser E2E (fa RTL, demo, admin/Admin@123): button visible on Packages view → dialog submit disabled until valid → created "مربی خصوصی — ۱۰ جلسه" (10 sessions / 45 days / 6,500,000 T, both branches) → toast + violet-badged card under private filter → persists across reload; zero console errors. Screenshot: download/gms-v2-package-create.png.
+- Docs: download/gms-progress.md gained "v2.1 — Package Creation UI" section (all boxes checked); this entry.
+
+Stage Summary:
+- Package creation is now fully UI-driven for admins (both kinds) — no more seeds/Swagger-only catalog management; demo adapter stays contract-exact with POST /catalog/packages.
+- No schema, contract, or backend changes; legacy v1/v2 databases unaffected.
+- Remaining v2.1 backlog (not requested yet): package edit/deactivate UI (backend has no PUT /catalog/packages either), and the optional "buy private package" shortcut inside the assign dialog's amber warning.

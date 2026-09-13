@@ -10,6 +10,7 @@ import {
 } from "./demo-attendance";
 import {
   demoCreateMember,
+  demoCreatePackage,
   demoGetMember,
   demoListBranches,
   demoListPackages,
@@ -72,6 +73,7 @@ import type {
   CreateBuffetOrderRequest,
   CreatePlanRequest,
   CreateProductRequest,
+  CreatePackageRequest,
   CreateRecordRequest,
   ExercisePackage,
   LoginResponse,
@@ -177,6 +179,15 @@ export function listBranches(): Promise<Branch[]> {
 export function listPackages(): Promise<ExercisePackage[]> {
   if (isDemoMode) return demoListPackages();
   return request<ExercisePackage[]>("/catalog/packages");
+}
+
+/** v2 — admin package creation (Exercise or PrivateCoaching). */
+export function createPackage(req: CreatePackageRequest): Promise<ExercisePackage> {
+  if (isDemoMode) return demoCreatePackage(req);
+  return request<ExercisePackage>("/catalog/packages", {
+    method: "POST",
+    body: JSON.stringify(req),
+  });
 }
 
 export function listProducts(branchId?: string): Promise<BuffetProduct[]> {
