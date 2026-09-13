@@ -9,10 +9,10 @@ import { GmsApiError } from "@/lib/gms/api";
 import { useAuth, useI18n } from "./providers";
 
 const DEMO_ACCOUNTS = [
-  { username: "admin", password: "Admin@123", roleKey: "role.admin" },
-  { username: "reception.north", password: "Operator@123", roleKey: "role.reception" },
-  { username: "buffet.north", password: "Operator@123", roleKey: "role.buffet" },
-  { username: "coach.north", password: "Operator@123", roleKey: "role.coach" },
+  { username: "admin", password: "Admin@123", roleKey: "role.admin", sectionKey: "sections.management" },
+  { username: "reception.north", password: "Operator@123", roleKey: "role.reception", sectionKey: "sections.reception" },
+  { username: "buffet.north", password: "Operator@123", roleKey: "role.buffet", sectionKey: "sections.buffet" },
+  { username: "coach.north", password: "Operator@123", roleKey: "role.coach", sectionKey: "sections.coaching" },
 ];
 
 export function LoginView() {
@@ -105,7 +105,9 @@ export function LoginView() {
                   <p className="truncate font-mono text-xs" dir="ltr">
                     {account.username} / {account.password}
                   </p>
-                  <p className="text-xs text-muted-foreground">{t(account.roleKey)}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {t(account.roleKey)} · {t(account.sectionKey)}
+                  </p>
                 </div>
                 <Button
                   type="button"

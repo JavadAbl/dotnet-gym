@@ -9,11 +9,13 @@ import {
   Coffee,
   CupSoda,
   Dumbbell,
+  MapPin,
   Package,
   PackagePlus,
   ReceiptText,
   ScanLine,
   ShieldCheck,
+  UserPlus,
   Users,
   Wallet as WalletIcon,
 } from "lucide-react";
@@ -59,22 +61,33 @@ interface KpiState {
 }
 
 interface DashboardViewProps {
+  /** v2.3 — which section the dashboard is rendered in (drives quick actions). */
+  section: "reception" | "management";
   onOpenAttendance: () => void;
   onOpenBuffet: () => void;
   onOpenCoaching: () => void;
   onCreateMember: () => void;
   onSell: () => void;
   onTopUp: () => void;
+  onOpenPackages: () => void;
+  onOpenBuffetProducts: () => void;
+  onOpenBranches: () => void;
+  onOpenUsers: () => void;
 }
 
 /** Phase 8 — role-aware dashboard + reports. KPI set follows the viewer's duties. */
 export function DashboardView({
+  section,
   onOpenAttendance,
   onOpenBuffet,
   onOpenCoaching,
   onCreateMember,
   onSell,
   onTopUp,
+  onOpenPackages,
+  onOpenBuffetProducts,
+  onOpenBranches,
+  onOpenUsers,
 }: DashboardViewProps) {
   const { t, locale } = useI18n();
   const { session } = useAuth();
@@ -223,18 +236,25 @@ export function DashboardView({
         ];
 
   const quickActions: Array<{ label: string; icon: typeof Users; action: () => void; primary?: boolean }> =
-    isCoach
-      ? [{ label: t("dashboard.qa.coaching"), icon: ClipboardList, action: onOpenCoaching, primary: true }]
-      : isBuffet
-        ? [{ label: t("dashboard.qa.pos"), icon: Coffee, action: onOpenBuffet, primary: true }]
-        : [
-            { label: t("dashboard.qa.newMember"), icon: CirclePlus, action: onCreateMember, primary: true },
-            { label: t("dashboard.qa.sell"), icon: PackagePlus, action: onSell },
-            { label: t("dashboard.qa.topup"), icon: WalletIcon, action: onTopUp },
-            { label: t("dashboard.qa.checkin"), icon: ScanLine, action: onOpenAttendance },
-            { label: t("dashboard.qa.pos"), icon: Coffee, action: onOpenBuffet },
-            { label: t("dashboard.qa.coaching"), icon: ClipboardList, action: onOpenCoaching },
-          ];
+    section === "management"
+      ? [
+          { label: t("packages.create"), icon: PackagePlus, action: onOpenPackages, primary: true },
+          { label: t("buffet.products.new"), icon: Coffee, action: onOpenBuffetProducts },
+          { label: t("users.create"), icon: UserPlus, action: onOpenUsers },
+          { label: t("nav.branches"), icon: MapPin, action: onOpenBranches },
+        ]
+      : isCoach
+        ? [{ label: t("dashboard.qa.coaching"), icon: ClipboardList, action: onOpenCoaching, primary: true }]
+        : isBuffet
+          ? [{ label: t("dashboard.qa.pos"), icon: Coffee, action: onOpenBuffet, primary: true }]
+          : [
+              { label: t("dashboard.qa.newMember"), icon: CirclePlus, action: onCreateMember, primary: true },
+              { label: t("dashboard.qa.sell"), icon: PackagePlus, action: onSell },
+              { label: t("dashboard.qa.topup"), icon: WalletIcon, action: onTopUp },
+              { label: t("dashboard.qa.checkin"), icon: ScanLine, action: onOpenAttendance },
+              { label: t("dashboard.qa.pos"), icon: Coffee, action: onOpenBuffet },
+              { label: t("dashboard.qa.coaching"), icon: ClipboardList, action: onOpenCoaching },
+            ];
 
   const renderCard = (card: { label: string; icon: typeof Users; value: string | undefined; tone: string }) => {
     const Icon = card.icon;

@@ -64,19 +64,21 @@ import { useAuth, useI18n } from "./providers";
 interface BuffetViewProps {
   branches: Branch[];
   refreshSignal: number;
+  /** v2.3 — "operations" (POS + order history, reception/buffet sections) or "management" (products catalog only, admin). */
+  mode?: "operations" | "management";
 }
 
 const PAGE_SIZE = 10;
 const MAX_QUANTITY = 99;
 
-export function BuffetView({ branches, refreshSignal }: BuffetViewProps) {
+export function BuffetView({ branches, refreshSignal, mode = "operations" }: BuffetViewProps) {
   const { t, locale } = useI18n();
   const { session } = useAuth();
   const user = session!.user;
   const isAdmin = user.role === "admin";
   const pinnedBranchId = user.branchId ?? null;
 
-  const [tab, setTab] = React.useState<"pos" | "orders" | "products">("pos");
+  const [tab, setTab] = React.useState<"pos" | "orders" | "products">(mode === "management" ? "products" : "pos");
   const [refreshBump, setRefreshBump] = React.useState(0);
 
   // branch: reception/buffet pinned to their claim, admin picks (check-in pattern)
@@ -330,8 +332,12 @@ export function BuffetView({ branches, refreshSignal }: BuffetViewProps) {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold tracking-tight">{t("buffet.title")}</h2>
-        <p className="text-sm text-muted-foreground">{t("buffet.subtitle")}</p>
+        <h2 className="text-2xl font-bold tracking-tight">
+          {mode === "management" ? t("nav.buffetProducts") : t("buffet.title")}
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          {mode === "management" ? t("buffet.products.subtitle") : t("buffet.subtitle")}
+        </p>
       </div>
 
       {/* KPI chips */}
@@ -385,20 +391,23 @@ export function BuffetView({ branches, refreshSignal }: BuffetViewProps) {
 
       <Tabs value={tab} onValueChange={(value) => setTab(value as typeof tab)}>
         <TabsList className="w-full sm:w-auto">
-          <TabsTrigger value="pos" className="gap-1.5">
-            <CupSoda className="h-4 w-4" />
-            {t("buffet.tab.pos")}
-          </TabsTrigger>
-          <TabsTrigger value="orders" className="gap-1.5">
-            <ReceiptText className="h-4 w-4" />
-            {t("buffet.tab.orders")}
-          </TabsTrigger>
-          {isAdmin ? (
+          {mode === "management" ? (
             <TabsTrigger value="products" className="gap-1.5">
               <ShoppingBasket className="h-4 w-4" />
               {t("buffet.tab.products")}
             </TabsTrigger>
-          ) : null}
+          ) : (
+            <>
+              <TabsTrigger value="pos" className="gap-1.5">
+                <CupSoda className="h-4 w-4" />
+                {t("buffet.tab.pos")}
+              </TabsTrigger>
+              <TabsTrigger value="orders" className="gap-1.5">
+                <ReceiptText className="h-4 w-4" />
+                {t("buffet.tab.orders")}
+              </TabsTrigger>
+            </>
+          )}
         </TabsList>
       </Tabs>
 

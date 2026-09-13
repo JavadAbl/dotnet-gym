@@ -1,0 +1,938 @@
+     1→     1→"use client";
+     2→     2→
+     3→     3→import * as React from "react";
+     4→     4→import {
+     5→     5→  Banknote,
+     6→     6→  ChevronLeft,
+     7→     7→  ChevronRight,
+     8→     8→  CircleAlert,
+     9→     9→  CircleCheck,
+    10→    10→  CupSoda,
+    11→    11→  Minus,
+    12→    12→  Plus,
+    13→    13→  ReceiptText,
+    14→    14→  Search,
+    15→    15→  ShoppingBasket,
+    16→    16→  Wallet as WalletIcon,
+    17→    17→} from "lucide-react";
+    18→    18→import { toast } from "sonner";
+    19→    19→import { Badge } from "@/components/ui/badge";
+    20→    20→import { Button } from "@/components/ui/button";
+    21→    21→import { Card, CardContent } from "@/components/ui/card";
+    22→    22→import { Input } from "@/components/ui/input";
+    23→    23→import { Label } from "@/components/ui/label";
+    24→    24→import { Skeleton } from "@/components/ui/skeleton";
+    25→    25→import {
+    26→    26→  Select,
+    27→    27→  SelectContent,
+    28→    28→  SelectItem,
+    29→    29→  SelectTrigger,
+    30→    30→  SelectValue,
+    31→    31→} from "@/components/ui/select";
+    32→    32→import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+    33→    33→import {
+    34→    34→  Table,
+    35→    35→  TableBody,
+    36→    36→  TableCell,
+    37→    37→  TableHead,
+    38→    38→  TableHeader,
+    39→    39→  TableRow,
+    40→    40→} from "@/components/ui/table";
+    41→    41→import {
+    42→    42→  createBuffetOrder,
+    43→    43→  getBuffetSummary,
+    44→    44→  getWalletSnapshot,
+    45→    45→  listProducts,
+    46→    46→  searchBuffetOrders,
+    47→    47→  searchMembers,
+    48→    48→} from "@/lib/gms/api";
+    49→    49→import type {
+    50→    50→  Branch,
+    51→    51→  BuffetOrder,
+    52→    52→  BuffetProduct,
+    53→    53→  BuffetSummary,
+    54→    54→  Member,
+    55→    55→  PaymentMethod,
+    56→    56→  WalletSnapshot,
+    57→    57→} from "@/lib/gms/types";
+    58→    58→import { formatDateTime, formatNumber, formatToman } from "@/lib/gms/jalali";
+    59→    59→import { StatusBadge } from "./status-badge";
+    60→    60→import { describeError } from "./sell-package-dialog";
+    61→    61→import { ProductDialog } from "./product-dialog";
+    62→    62→import { useAuth, useI18n } from "./providers";
+    63→    63→
+    64→    64→interface BuffetViewProps {
+    65→    65→  branches: Branch[];
+    66→    66→  refreshSignal: number;
+    67→    67→}
+    68→    68→
+    69→    69→const PAGE_SIZE = 10;
+    70→    70→const MAX_QUANTITY = 99;
+    71→    71→
+    72→    72→export function BuffetView({ branches, refreshSignal }: BuffetViewProps) {
+    73→    73→  const { t, locale } = useI18n();
+    74→    74→  const { session } = useAuth();
+    75→    75→  const user = session!.user;
+    76→    76→  const isAdmin = user.role === "admin";
+    77→    77→  const pinnedBranchId = user.branchId ?? null;
+    78→    78→
+    79→    79→  const [tab, setTab] = React.useState<"pos" | "orders" | "products">("pos");
+    80→    80→  const [refreshBump, setRefreshBump] = React.useState(0);
+    81→    81→
+    82→    82→  // branch: reception/buffet pinned to their claim, admin picks (check-in pattern)
+    83→    83→  const [branchId, setBranchId] = React.useState(pinnedBranchId ?? "");
+    84→    84→  const effectiveBranchId = pinnedBranchId ?? branchId;
+    85→    85→
+    86→    86→  // ---------------------------------------------------------------- KPI summary + catalog
+    87→    87→  const [summary, setSummary] = React.useState<BuffetSummary | null>(null);
+    88→    88→  const [summaryError, setSummaryError] = React.useState(false);
+    89→    89→  const [products, setProducts] = React.useState<BuffetProduct[] | null>(null);
+    90→    90→  const [productsError, setProductsError] = React.useState(false);
+    91→    91→
+    92→    92→  React.useEffect(() => {
+    93→    93→    let cancelled = false;
+    94→    94→    getBuffetSummary(effectiveBranchId || undefined)
+    95→    95→      .then((result) => {
+    96→    96→        if (!cancelled) {
+    97→    97→          setSummary(result);
+    98→    98→          setSummaryError(false);
+    99→    99→        }
+   100→   100→      })
+   101→   101→      .catch(() => {
+   102→   102→        if (!cancelled) {
+   103→   103→          setSummary(null);
+   104→   104→          setSummaryError(true);
+   105→   105→        }
+   106→   106→      });
+   107→   107→    return () => {
+   108→   108→      cancelled = true;
+   109→   109→    };
+   110→   110→  }, [effectiveBranchId, refreshBump, refreshSignal]);
+   111→   111→
+   112→   112→  React.useEffect(() => {
+   113→   113→    let cancelled = false;
+   114→   114→    listProducts()
+   115→   115→      .then((items) => {
+   116→   116→        if (!cancelled) {
+   117→   117→          setProducts(items);
+   118→   118→          setProductsError(false);
+   119→   119→        }
+   120→   120→      })
+   121→   121→      .catch(() => {
+   122→   122→        if (!cancelled) {
+   123→   123→          setProducts(null);
+   124→   124→          setProductsError(true);
+   125→   125→        }
+   126→   126→      });
+   127→   127→    return () => {
+   128→   128→      cancelled = true;
+   129→   129→    };
+   130→   130→  }, [refreshBump, refreshSignal]);
+   131→   131→
+   132→   132→  const localizedProductName = React.useCallback(
+   133→   133→    (product: { nameEn: string; nameFa: string }) => (locale === "fa" ? product.nameFa : product.nameEn),
+   134→   134→    [locale],
+   135→   135→  );
+   136→   136→
+   137→   137→  const priceInBranch = React.useCallback(
+   138→   138→    (product: BuffetProduct, branch: string | null | undefined) =>
+   139→   139→      branch ? product.prices.find((p) => p.branchId === branch) ?? null : null,
+   140→   140→    [],
+   141→   141→  );
+   142→   142→
+   143→   143→  // ---------------------------------------------------------------- POS tab
+   144→   144→  const [memberQuery, setMemberQuery] = React.useState("");
+   145→   145→  const [memberResults, setMemberResults] = React.useState<Member[]>([]);
+   146→   146→  const [memberSearchOpen, setMemberSearchOpen] = React.useState(false);
+   147→   147→  const [selectedMember, setSelectedMember] = React.useState<Member | null>(null);
+   148→   148→  const [quantities, setQuantities] = React.useState<Record<string, number>>({});
+   149→   149→  const [paymentMethod, setPaymentMethod] = React.useState<PaymentMethod>("Cash");
+   150→   150→  const [wallet, setWallet] = React.useState<WalletSnapshot | null>(null);
+   151→   151→  const [note, setNote] = React.useState("");
+   152→   152→  const [submitting, setSubmitting] = React.useState(false);
+   153→   153→  const [orderError, setOrderError] = React.useState<string | null>(null);
+   154→   154→  const [lastOrder, setLastOrder] = React.useState<BuffetOrder | null>(null);
+   155→   155→
+   156→   156→  React.useEffect(() => {
+   157→   157→    // switching the branch changes prices — reset the cart
+   158→   158→    setQuantities({});
+   159→   159→    setLastOrder(null);
+   160→   160→    setOrderError(null);
+   161→   161→  }, [effectiveBranchId]);
+   162→   162→
+   163→   163→  React.useEffect(() => {
+   164→   164→    if (!selectedMember || paymentMethod !== "Wallet") {
+   165→   165→      setWallet(null);
+   166→   166→      return;
+   167→   167→    }
+   168→   168→    let cancelled = false;
+   169→   169→    getWalletSnapshot(selectedMember.id)
+   170→   170→      .then((snapshot) => {
+   171→   171→        if (!cancelled) setWallet(snapshot);
+   172→   172→      })
+   173→   173→      .catch(() => {
+   174→   174→        if (!cancelled) setWallet(null);
+   175→   175→      });
+   176→   176→    return () => {
+   177→   177→      cancelled = true;
+   178→   178→    };
+   179→   179→  }, [selectedMember, paymentMethod, refreshBump]);
+   180→   180→
+   181→   181→  // debounced member search
+   182→   182→  React.useEffect(() => {
+   183→   183→    const handle = setTimeout(() => {
+   184→   184→      const term = memberQuery.trim();
+   185→   185→      if (term.length === 0) {
+   186→   186→        setMemberResults([]);
+   187→   187→        setMemberSearchOpen(false);
+   188→   188→        return;
+   189→   189→      }
+   190→   190→      searchMembers({ search: term, page: 1, pageSize: 6 })
+   191→   191→        .then((res) => {
+   192→   192→          setMemberResults(res.items);
+   193→   193→          setMemberSearchOpen(true);
+   194→   194→        })
+   195→   195→        .catch(() => setMemberResults([]));
+   196→   196→    }, 250);
+   197→   197→    return () => clearTimeout(handle);
+   198→   198→  }, [memberQuery]);
+   199→   199→
+   200→   200→  const cartLines = React.useMemo(() => {
+   201→   201→    if (!products) return [];
+   202→   202→    return Object.entries(quantities)
+   203→   203→      .filter(([, quantity]) => quantity > 0)
+   204→   204→      .map(([productId, quantity]) => {
+   205→   205→        const product = products.find((p) => p.id === productId)!;
+   206→   206→        const price = priceInBranch(product, effectiveBranchId);
+   207→   207→        const unitPriceToman = price?.priceToman ?? 0;
+   208→   208→        return { product, quantity, unitPriceToman, lineTotalToman: unitPriceToman * quantity };
+   209→   209→      });
+   210→   210→  }, [quantities, products, effectiveBranchId, priceInBranch]);
+   211→   211→
+   212→   212→  const totalToman = cartLines.reduce((sum, line) => sum + line.lineTotalToman, 0);
+   213→   213→  const walletBalance = wallet?.balanceToman ?? 0;
+   214→   214→  const walletInsufficient = paymentMethod === "Wallet" && selectedMember !== null && wallet !== null && walletBalance < totalToman;
+   215→   215→  const memberInactive = selectedMember !== null && selectedMember.status !== "Active";
+   216→   216→  const canSubmit =
+   217→   217→    selectedMember !== null &&
+   218→   218→    Boolean(effectiveBranchId) &&
+   219→   219→    cartLines.length > 0 &&
+   220→   220→    totalToman > 0 &&
+   221→   221→    !memberInactive &&
+   222→   222→    !walletInsufficient &&
+   223→   223→    !submitting;
+   224→   224→
+   225→   225→  function setQuantity(productId: string, quantity: number) {
+   226→   226→    setQuantities((prev) => {
+   227→   227→      const next = { ...prev };
+   228→   228→      if (quantity <= 0) {
+   229→   229→        delete next[productId];
+   230→   230→      } else {
+   231→   231→        next[productId] = Math.min(quantity, MAX_QUANTITY);
+   232→   232→      }
+   233→   233→      return next;
+   234→   234→    });
+   235→   235→    setLastOrder(null);
+   236→   236→    setOrderError(null);
+   237→   237→  }
+   238→   238→
+   239→   239→  function pickMember(member: Member) {
+   240→   240→    setSelectedMember(member);
+   241→   241→    setMemberSearchOpen(false);
+   242→   242→    setMemberQuery("");
+   243→   243→  }
+   244→   244→
+   245→   245→  async function handleSubmitOrder(event: React.FormEvent) {
+   246→   246→    event.preventDefault();
+   247→   247→    if (!selectedMember || !effectiveBranchId || cartLines.length === 0) return;
+   248→   248→
+   249→   249→    setSubmitting(true);
+   250→   250→    setOrderError(null);
+   251→   251→    try {
+   252→   252→      const order = await createBuffetOrder({
+   253→   253→        memberId: selectedMember.id,
+   254→   254→        branchId: effectiveBranchId,
+   255→   255→        paymentMethod,
+   256→   256→        items: cartLines.map((line) => ({ productId: line.product.id, quantity: line.quantity })),
+   257→   257→        note: note.trim() || undefined,
+   258→   258→      });
+   259→   259→      setLastOrder(order);
+   260→   260→      toast.success(t("buffet.pos.success.toast", { amount: formatToman(order.totalToman, locale) }));
+   261→   261→      setQuantities({});
+   262→   262→      setNote("");
+   263→   263→      setRefreshBump((n) => n + 1);
+   264→   264→    } catch (err) {
+   265→   265→      setOrderError(describeError(t, err));
+   266→   266→    } finally {
+   267→   267→      setSubmitting(false);
+   268→   268→    }
+   269→   269→  }
+   270→   270→
+   271→   271→  // ---------------------------------------------------------------- orders tab
+   272→   272→  const [orderSearchInput, setOrderSearchInput] = React.useState("");
+   273→   273→  const [orderSearch, setOrderSearch] = React.useState("");
+   274→   274→  const [orderBranchFilter, setOrderBranchFilter] = React.useState<string>("all");
+   275→   275→  const [orderMethodFilter, setOrderMethodFilter] = React.useState<string>("all");
+   276→   276→  const [orderPage, setOrderPage] = React.useState(1);
+   277→   277→  const [orders, setOrders] = React.useState<BuffetOrder[] | null>(null);
+   278→   278→  const [orderCount, setOrderCount] = React.useState(0);
+   279→   279→  const [ordersLoading, setOrdersLoading] = React.useState(false);
+   280→   280→  const [ordersError, setOrdersError] = React.useState(false);
+   281→   281→
+   282→   282→  React.useEffect(() => {
+   283→   283→    const handle = setTimeout(() => {
+   284→   284→      setOrderSearch(orderSearchInput.trim());
+   285→   285→      setOrderPage(1);
+   286→   286→    }, 300);
+   287→   287→    return () => clearTimeout(handle);
+   288→   288→  }, [orderSearchInput]);
+   289→   289→
+   290→   290→  React.useEffect(() => {
+   291→   291→    if (tab !== "orders") return;
+   292→   292→    let cancelled = false;
+   293→   293→    setOrdersLoading(true);
+   294→   294→    searchBuffetOrders({
+   295→   295→      search: orderSearch || undefined,
+   296→   296→      branchId: (isAdmin ? (orderBranchFilter !== "all" ? orderBranchFilter : undefined) : effectiveBranchId || undefined),
+   297→   297→      paymentMethod: orderMethodFilter !== "all" ? (orderMethodFilter as PaymentMethod) : undefined,
+   298→   298→      page: orderPage,
+   299→   299→      pageSize: PAGE_SIZE,
+   300→   300→    })
+   301→   301→      .then((result) => {
+   302→   302→        if (cancelled) return;
+   303→   303→        setOrders(result.items);
+   304→   304→        setOrderCount(result.totalCount);
+   305→   305→        setOrdersError(false);
+   306→   306→      })
+   307→   307→      .catch(() => {
+   308→   308→        if (!cancelled) {
+   309→   309→          setOrders([]);
+   310→   310→          setOrderCount(0);
+   311→   311→          setOrdersError(true);
+   312→   312→        }
+   313→   313→      })
+   314→   314→      .finally(() => {
+   315→   315→        if (!cancelled) setOrdersLoading(false);
+   316→   316→      });
+   317→   317→    return () => {
+   318→   318→      cancelled = true;
+   319→   319→    };
+   320→   320→  }, [tab, orderSearch, orderBranchFilter, orderMethodFilter, orderPage, refreshBump, refreshSignal, isAdmin, effectiveBranchId]);
+   321→   321→
+   322→   322→  const orderTotalPages = Math.max(1, Math.ceil(orderCount / PAGE_SIZE));
+   323→   323→
+   324→   324→  // ---------------------------------------------------------------- products tab (admin)
+   325→   325→  const [productDialogOpen, setProductDialogOpen] = React.useState(false);
+   326→   326→  const [editingProduct, setEditingProduct] = React.useState<BuffetProduct | null>(null);
+   327→   327→
+   328→   328→  const activeBranches = branches.filter((b) => b.isActive);
+   329→   329→
+   330→   330→  return (
+   331→   331→    <div className="space-y-6">
+   332→   332→      <div>
+   333→   333→        <h2 className="text-2xl font-bold tracking-tight">{t("buffet.title")}</h2>
+   334→   334→        <p className="text-sm text-muted-foreground">{t("buffet.subtitle")}</p>
+   335→   335→      </div>
+   336→   336→
+   337→   337→      {/* KPI chips */}
+   338→   338→      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+   339→   339→        {[
+   340→   340→          {
+   341→   341→            key: "buffet.kpi.ordersToday",
+   342→   342→            icon: ShoppingBasket,
+   343→   343→            value: summary ? formatNumber(summary.ordersToday, locale) : null,
+   344→   344→            tone: "bg-emerald-600",
+   345→   345→          },
+   346→   346→          {
+   347→   347→            key: "buffet.kpi.revenueToday",
+   348→   348→            icon: ReceiptText,
+   349→   349→            value: summary ? formatToman(summary.revenueTodayToman, locale) : null,
+   350→   350→            tone: "bg-teal-600",
+   351→   351→          },
+   352→   352→          {
+   353→   353→            key: "buffet.kpi.cashToday",
+   354→   354→            icon: Banknote,
+   355→   355→            value: summary ? formatToman(summary.cashRevenueTodayToman, locale) : null,
+   356→   356→            tone: "bg-amber-600",
+   357→   357→          },
+   358→   358→          {
+   359→   359→            key: "buffet.kpi.walletToday",
+   360→   360→            icon: WalletIcon,
+   361→   361→            value: summary ? formatToman(summary.walletRevenueTodayToman, locale) : null,
+   362→   362→            tone: "bg-violet-600",
+   363→   363→          },
+   364→   364→        ].map((chip) => {
+   365→   365→          const Icon = chip.icon;
+   366→   366→          return (
+   367→   367→            <Card key={chip.key} className="py-0">
+   368→   368→              <CardContent className="flex items-center gap-3 p-4">
+   369→   369→                <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${chip.tone} text-white`}>
+   370→   370→                  <Icon className="h-4.5 w-4.5" />
+   371→   371→                </span>
+   372→   372→                <div className="min-w-0">
+   373→   373→                  {chip.value === null && !summaryError ? (
+   374→   374→                    <Skeleton className="mb-1 h-6 w-20" />
+   375→   375→                  ) : (
+   376→   376→                    <p className="truncate text-lg font-bold tabular-nums">{chip.value ?? "—"}</p>
+   377→   377→                  )}
+   378→   378→                  <p className="truncate text-xs text-muted-foreground">{t(chip.key)}</p>
+   379→   379→                </div>
+   380→   380→              </CardContent>
+   381→   381→            </Card>
+   382→   382→          );
+   383→   383→        })}
+   384→   384→      </div>
+   385→   385→
+   386→   386→      <Tabs value={tab} onValueChange={(value) => setTab(value as typeof tab)}>
+   387→   387→        <TabsList className="w-full sm:w-auto">
+   388→   388→          <TabsTrigger value="pos" className="gap-1.5">
+   389→   389→            <CupSoda className="h-4 w-4" />
+   390→   390→            {t("buffet.tab.pos")}
+   391→   391→          </TabsTrigger>
+   392→   392→          <TabsTrigger value="orders" className="gap-1.5">
+   393→   393→            <ReceiptText className="h-4 w-4" />
+   394→   394→            {t("buffet.tab.orders")}
+   395→   395→          </TabsTrigger>
+   396→   396→          {isAdmin ? (
+   397→   397→            <TabsTrigger value="products" className="gap-1.5">
+   398→   398→              <ShoppingBasket className="h-4 w-4" />
+   399→   399→              {t("buffet.tab.products")}
+   400→   400→            </TabsTrigger>
+   401→   401→          ) : null}
+   402→   402→        </TabsList>
+   403→   403→      </Tabs>
+   404→   404→
+   405→   405→      {/* ---------------------------------------------------------------- POS tab */}
+   406→   406→      {tab === "pos" ? (
+   407→   407→        <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
+   408→   408→          {/* member + products */}
+   409→   409→          <div className="space-y-4 lg:col-span-3">
+   410→   410→            <div className="space-y-1.5">
+   411→   411→              <Label>{t("buffet.pos.member")}</Label>
+   412→   412→              {selectedMember ? (
+   413→   413→                <div className="flex items-center justify-between gap-2 rounded-lg border bg-card px-3 py-2">
+   414→   414→                  <div className="flex min-w-0 items-center gap-2">
+   415→   415→                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-xs font-bold text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200">
+   416→   416→                      {selectedMember.fullName.slice(0, 1)}
+   417→   417→                    </span>
+   418→   418→                    <div className="min-w-0">
+   419→   419→                      <p className="truncate text-sm font-medium">{selectedMember.fullName}</p>
+   420→   420→                      <p className="font-mono text-xs text-muted-foreground" dir="ltr">
+   421→   421→                        {selectedMember.code}
+   422→   422→                      </p>
+   423→   423→                    </div>
+   424→   424→                  </div>
+   425→   425→                  <div className="flex items-center gap-2">
+   426→   426→                    <StatusBadge status={selectedMember.status} />
+   427→   427→                    <Button type="button" variant="ghost" size="sm" onClick={() => setSelectedMember(null)}>
+   428→   428→                      ×
+   429→   429→                    </Button>
+   430→   430→                  </div>
+   431→   431→                </div>
+   432→   432→              ) : (
+   433→   433→                <div className="relative">
+   434→   434→                  <Search className="absolute top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground start-3" />
+   435→   435→                  <Input
+   436→   436→                    value={memberQuery}
+   437→   437→                    onChange={(e) => setMemberQuery(e.target.value)}
+   438→   438→                    placeholder={t("buffet.pos.member.placeholder")}
+   439→   439→                    className="ps-9"
+   440→   440→                  />
+   441→   441→                  {memberSearchOpen ? (
+   442→   442→                    <div className="absolute inset-x-0 top-full z-30 mt-1 overflow-hidden rounded-lg border bg-popover shadow-md">
+   443→   443→                      {memberResults.length === 0 ? (
+   444→   444→                        <p className="px-3 py-2 text-sm text-muted-foreground">{t("buffet.pos.member.none")}</p>
+   445→   445→                      ) : (
+   446→   446→                        memberResults.map((member) => (
+   447→   447→                          <button
+   448→   448→                            key={member.id}
+   449→   449→                            type="button"
+   450→   450→                            onClick={() => pickMember(member)}
+   451→   451→                            className="flex w-full items-center justify-between gap-2 px-3 py-2 text-start hover:bg-accent"
+   452→   452→                          >
+   453→   453→                            <span className="min-w-0">
+   454→   454→                              <span className="block truncate text-sm font-medium">{member.fullName}</span>
+   455→   455→                              <span className="block font-mono text-xs text-muted-foreground" dir="ltr">
+   456→   456→                                {member.code}
+   457→   457→                              </span>
+   458→   458→                            </span>
+   459→   459→                            <StatusBadge status={member.status} />
+   460→   460→                          </button>
+   461→   461→                        ))
+   462→   462→                      )}
+   463→   463→                    </div>
+   464→   464→                  ) : null}
+   465→   465→                </div>
+   466→   466→              )}
+   467→   467→              {memberInactive ? (
+   468→   468→                <p className="flex items-center gap-1.5 text-xs text-destructive">
+   469→   469→                  <CircleAlert className="h-3.5 w-3.5" />
+   470→   470→                  {t("buffet.pos.activeMemberOnly")}
+   471→   471→                </p>
+   472→   472→              ) : null}
+   473→   473→            </div>
+   474→   474→
+   475→   475→            {/* branch: pinned for reception/buffet, admin picks (affects per-branch prices) */}
+   476→   476→            <div className="space-y-1.5">
+   477→   477→              <Label>{t("buffet.pos.branch")}</Label>
+   478→   478→              {pinnedBranchId ? (
+   479→   479→                <div className="flex h-9 items-center rounded-md border bg-muted/40 px-3 text-sm text-muted-foreground">
+   480→   480→                  {(() => {
+   481→   481→                    const branch = branches.find((b) => b.id === pinnedBranchId);
+   482→   482→                    return branch ? (locale === "fa" ? branch.nameFa : branch.nameEn) : t("checkin.branch.pinned");
+   483→   483→                  })()}
+   484→   484→                </div>
+   485→   485→              ) : (
+   486→   486→                <Select
+   487→   487→                  value={branchId || undefined}
+   488→   488→                  onValueChange={(value) => {
+   489→   489→                    setBranchId(value);
+   490→   490→                  }}
+   491→   491→                >
+   492→   492→                  <SelectTrigger className="sm:w-60">
+   493→   493→                    <SelectValue placeholder={t("buffet.pos.branch.placeholder")} />
+   494→   494→                  </SelectTrigger>
+   495→   495→                  <SelectContent>
+   496→   496→                    {activeBranches.map((branch) => (
+   497→   497→                      <SelectItem key={branch.id} value={branch.id}>
+   498→   498→                        {locale === "fa" ? branch.nameFa : branch.nameEn}
+   499→   499→                      </SelectItem>
+   500→   500→                    ))}
+   501→   501→                  </SelectContent>
+   502→   502→                </Select>
+   503→   503→              )}
+   504→   504→            </div>
+   505→   505→
+   506→   506→            {/* product grid */}
+   507→   507→            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+   508→   508→              {products === null && !productsError
+   509→   509→                ? Array.from({ length: 4 }).map((_, index) => <Skeleton key={index} className="h-24 w-full" />)
+   510→   510→                : null}
+   511→   511→              {productsError ? (
+   512→   512→                <p className="text-sm text-destructive sm:col-span-2">{t("common.error.load")}</p>
+   513→   513→              ) : null}
+   514→   514→              {products
+   515→   515→                ?.filter((product) => product.isActive)
+   516→   516→                .map((product) => {
+   517→   517→                  const price = priceInBranch(product, effectiveBranchId);
+   518→   518→                  const quantity = quantities[product.id] ?? 0;
+   519→   519→                  return (
+   520→   520→                    <Card key={product.id} className={`py-0 ${price ? "" : "opacity-60"}`}>
+   521→   521→                      <CardContent className="flex items-center justify-between gap-3 p-4">
+   522→   522→                        <div className="min-w-0">
+   523→   523→                          <p className="truncate text-sm font-semibold">{localizedProductName(product)}</p>
+   524→   524→                          <p className="mt-0.5 text-sm font-medium tabular-nums text-emerald-700 dark:text-emerald-400">
+   525→   525→                            {price ? formatToman(price.priceToman, locale) : t("buffet.pos.notPriced")}
+   526→   526→                          </p>
+   527→   527→                        </div>
+   528→   528→                        {price ? (
+   529→   529→                          <div className="flex shrink-0 items-center gap-1.5">
+   530→   530→                            <Button
+   531→   531→                              type="button"
+   532→   532→                              variant="outline"
+   533→   533→                              size="icon"
+   534→   534→                              className="h-8 w-8"
+   535→   535→                              aria-label={t("buffet.pos.decrease")}
+   536→   536→                              disabled={quantity === 0}
+   537→   537→                              onClick={() => setQuantity(product.id, quantity - 1)}
+   538→   538→                            >
+   539→   539→                              <Minus className="h-3.5 w-3.5" />
+   540→   540→                            </Button>
+   541→   541→                            <span className="w-8 text-center text-sm font-bold tabular-nums" dir="ltr">
+   542→   542→                              {formatNumber(quantity, locale)}
+   543→   543→                            </span>
+   544→   544→                            <Button
+   545→   545→                              type="button"
+   546→   546→                              variant="outline"
+   547→   547→                              size="icon"
+   548→   548→                              className="h-8 w-8"
+   549→   549→                              aria-label={t("buffet.pos.increase")}
+   550→   550→                              disabled={!effectiveBranchId || quantity >= MAX_QUANTITY}
+   551→   551→                              onClick={() => setQuantity(product.id, quantity + 1)}
+   552→   552→                            >
+   553→   553→                              <Plus className="h-3.5 w-3.5" />
+   554→   554→                            </Button>
+   555→   555→                          </div>
+   556→   556→                        ) : null}
+   557→   557→                      </CardContent>
+   558→   558→                    </Card>
+   559→   559→                  );
+   560→   560→                })}
+   561→   561→            </div>
+   562→   562→          </div>
+   563→   563→
+   564→   564→          {/* order summary */}
+   565→   565→          <form onSubmit={handleSubmitOrder} className="lg:col-span-2">
+   566→   566→            <Card className="py-0 lg:sticky lg:top-20">
+   567→   567→              <CardContent className="space-y-4 p-4">
+   568→   568→                <p className="text-sm font-semibold">{t("buffet.pos.summary")}</p>
+   569→   569→
+   570→   570→                {cartLines.length === 0 ? (
+   571→   571→                  <p className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
+   572→   572→                    {t("buffet.pos.emptyCart")}
+   573→   573→                  </p>
+   574→   574→                ) : (
+   575→   575→                  <ul className="space-y-2">
+   576→   576→                    {cartLines.map((line) => (
+   577→   577→                      <li key={line.product.id} className="flex items-center justify-between gap-2 text-sm">
+   578→   578→                        <span className="min-w-0 truncate">
+   579→   579→                          {formatNumber(line.quantity, locale)}× {localizedProductName(line.product)}
+   580→   580→                        </span>
+   581→   581→                        <span className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground" dir="ltr">
+   582→   582→                          {line.lineTotalToman.toLocaleString("en-US")}
+   583→   583→                        </span>
+   584→   584→                      </li>
+   585→   585→                    ))}
+   586→   586→                  </ul>
+   587→   587→                )}
+   588→   588→
+   589→   589→                <div className="flex items-center justify-between border-t pt-3">
+   590→   590→                  <span className="text-sm font-semibold">{t("buffet.pos.total")}</span>
+   591→   591→                  <span className="text-base font-bold tabular-nums text-emerald-700 dark:text-emerald-400">
+   592→   592→                    {formatToman(totalToman, locale)}
+   593→   593→                  </span>
+   594→   594→                </div>
+   595→   595→
+   596→   596→                {/* payment method: cash XOR wallet (locked decision #5) */}
+   597→   597→                <div className="space-y-1.5">
+   598→   598→                  <Label>{t("buffet.pos.payment")}</Label>
+   599→   599→                  <div className="grid grid-cols-2 gap-2">
+   600→   600→                    {(["Cash", "Wallet"] as const).map((method) => (
+   601→   601→                      <button
+   602→   602→                        key={method}
+   603→   603→                        type="button"
+   604→   604→                        onClick={() => setPaymentMethod(method)}
+   605→   605→                        className={`flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+   606→   606→                          paymentMethod === method
+   607→   607→                            ? "border-emerald-600 bg-emerald-600 text-white"
+   608→   608→                            : "text-muted-foreground hover:bg-accent"
+   609→   609→                        }`}
+   610→   610→                      >
+   611→   611→                        {method === "Cash" ? <Banknote className="h-4 w-4" /> : <WalletIcon className="h-4 w-4" />}
+   612→   612→                        {t(`buffet.pos.payment.${method.toLowerCase()}`)}
+   613→   613→                      </button>
+   614→   614→                    ))}
+   615→   615→                  </div>
+   616→   616→                  {paymentMethod === "Wallet" ? (
+   617→   617→                    selectedMember === null ? (
+   618→   618→                      <p className="text-xs text-muted-foreground">{t("buffet.pos.wallet.pickMember")}</p>
+   619→   619→                    ) : wallet === null ? (
+   620→   620→                      <Skeleton className="h-4 w-28" />
+   621→   621→                    ) : (
+   622→   622→                      <p
+   623→   623→                        className={`text-xs tabular-nums ${walletInsufficient ? "font-medium text-destructive" : "text-muted-foreground"}`}
+   624→   624→                      >
+   625→   625→                        {t("buffet.pos.wallet.balance", { amount: formatToman(walletBalance, locale) })}
+   626→   626→                        {walletInsufficient ? ` · ${t("buffet.pos.wallet.insufficient")}` : ""}
+   627→   627→                      </p>
+   628→   628→                    )
+   629→   629→                  ) : null}
+   630→   630→                </div>
+   631→   631→
+   632→   632→                <div className="space-y-1.5">
+   633→   633→                  <Label htmlFor="buffet-note">{t("buffet.pos.note")}</Label>
+   634→   634→                  <Input
+   635→   635→                    id="buffet-note"
+   636→   636→                    value={note}
+   637→   637→                    onChange={(e) => setNote(e.target.value)}
+   638→   638→                    placeholder={t("buffet.pos.note.placeholder")}
+   639→   639→                    maxLength={200}
+   640→   640→                  />
+   641→   641→                </div>
+   642→   642→
+   643→   643→                {lastOrder ? (
+   644→   644→                  <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-900 dark:bg-emerald-950">
+   645→   645→                    <p className="flex items-center gap-2 text-sm font-semibold text-emerald-800 dark:text-emerald-300">
+   646→   646→                      <CircleCheck className="h-4 w-4" />
+   647→   647→                      {t("buffet.pos.success.title")}
+   648→   648→                    </p>
+   649→   649→                    <p className="mt-1 text-xs text-emerald-700 dark:text-emerald-400">
+   650→   650→                      {t("buffet.pos.success.total", { amount: formatToman(lastOrder.totalToman, locale) })}
+   651→   651→                    </p>
+   652→   652→                  </div>
+   653→   653→                ) : null}
+   654→   654→
+   655→   655→                {orderError ? (
+   656→   656→                  <p className="flex items-start gap-1.5 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+   657→   657→                    <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+   658→   658→                    {orderError}
+   659→   659→                  </p>
+   660→   660→                ) : null}
+   661→   661→
+   662→   662→                <Button type="submit" disabled={!canSubmit} className="w-full gap-1.5 bg-emerald-600 hover:bg-emerald-700">
+   663→   663→                  <ShoppingBasket className="h-4 w-4" />
+   664→   664→                  {submitting ? t("buffet.pos.submitting") : t("buffet.pos.submit")}
+   665→   665→                </Button>
+   666→   666→              </CardContent>
+   667→   667→            </Card>
+   668→   668→          </form>
+   669→   669→        </div>
+   670→   670→      ) : null}
+   671→   671→
+   672→   672→      {/* ---------------------------------------------------------------- orders tab */}
+   673→   673→      {tab === "orders" ? (
+   674→   674→        <div className="space-y-4">
+   675→   675→          <div className="flex flex-col gap-2 sm:flex-row">
+   676→   676→            <div className="relative flex-1">
+   677→   677→              <Search className="absolute top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground start-3" />
+   678→   678→              <Input
+   679→   679→                value={orderSearchInput}
+   680→   680→                onChange={(e) => setOrderSearchInput(e.target.value)}
+   681→   681→                placeholder={t("buffet.orders.search")}
+   682→   682→                className="ps-9"
+   683→   683→              />
+   684→   684→            </div>
+   685→   685→            {isAdmin ? (
+   686→   686→              <Select
+   687→   687→                value={orderBranchFilter}
+   688→   688→                onValueChange={(value) => {
+   689→   689→                  setOrderBranchFilter(value);
+   690→   690→                  setOrderPage(1);
+   691→   691→                }}
+   692→   692→              >
+   693→   693→                <SelectTrigger className="w-full sm:w-40">
+   694→   694→                  <SelectValue />
+   695→   695→                </SelectTrigger>
+   696→   696→                <SelectContent>
+   697→   697→                  <SelectItem value="all">{t("buffet.orders.branch.all")}</SelectItem>
+   698→   698→                  {activeBranches.map((branch) => (
+   699→   699→                    <SelectItem key={branch.id} value={branch.id}>
+   700→   700→                      {locale === "fa" ? branch.nameFa : branch.nameEn}
+   701→   701→                    </SelectItem>
+   702→   702→                  ))}
+   703→   703→                </SelectContent>
+   704→   704→              </Select>
+   705→   705→            ) : null}
+   706→   706→            <Select
+   707→   707→              value={orderMethodFilter}
+   708→   708→              onValueChange={(value) => {
+   709→   709→                setOrderMethodFilter(value);
+   710→   710→                setOrderPage(1);
+   711→   711→              }}
+   712→   712→            >
+   713→   713→              <SelectTrigger className="w-full sm:w-36">
+   714→   714→                <SelectValue />
+   715→   715→              </SelectTrigger>
+   716→   716→              <SelectContent>
+   717→   717→                <SelectItem value="all">{t("buffet.orders.method.all")}</SelectItem>
+   718→   718→                <SelectItem value="Cash">{t("buffet.pos.payment.cash")}</SelectItem>
+   719→   719→                <SelectItem value="Wallet">{t("buffet.pos.payment.wallet")}</SelectItem>
+   720→   720→              </SelectContent>
+   721→   721→            </Select>
+   722→   722→          </div>
+   723→   723→
+   724→   724→          <div className="overflow-hidden rounded-lg border">
+   725→   725→            <Table>
+   726→   726→              <TableHeader>
+   727→   727→                <TableRow>
+   728→   728→                  <TableHead>{t("buffet.column.member")}</TableHead>
+   729→   729→                  <TableHead className="hidden md:table-cell">{t("buffet.column.items")}</TableHead>
+   730→   730→                  <TableHead>{t("buffet.column.total")}</TableHead>
+   731→   731→                  <TableHead className="hidden sm:table-cell">{t("buffet.column.payment")}</TableHead>
+   732→   732→                  <TableHead className="hidden lg:table-cell">{t("buffet.column.branch")}</TableHead>
+   733→   733→                  <TableHead className="hidden sm:table-cell">{t("buffet.column.date")}</TableHead>
+   734→   734→                </TableRow>
+   735→   735→              </TableHeader>
+   736→   736→              <TableBody>
+   737→   737→                {ordersLoading ? (
+   738→   738→                  <TableRow>
+   739→   739→                    <TableCell colSpan={6}>
+   740→   740→                      <Skeleton className="h-8 w-full" />
+   741→   741→                    </TableCell>
+   742→   742→                  </TableRow>
+   743→   743→                ) : ordersError ? (
+   744→   744→                  <TableRow>
+   745→   745→                    <TableCell colSpan={6} className="text-sm text-destructive">
+   746→   746→                      {t("common.error.load")}
+   747→   747→                    </TableCell>
+   748→   748→                  </TableRow>
+   749→   749→                ) : orders && orders.length > 0 ? (
+   750→   750→                  orders.map((order) => (
+   751→   751→                    <TableRow key={order.id}>
+   752→   752→                      <TableCell>
+   753→   753→                        <p className="truncate text-sm font-medium">{order.memberFullName}</p>
+   754→   754→                        <p className="font-mono text-xs text-muted-foreground" dir="ltr">
+   755→   755→                          {order.memberCode}
+   756→   756→                        </p>
+   757→   757→                      </TableCell>
+   758→   758→                      <TableCell className="hidden max-w-64 md:table-cell">
+   759→   759→                        <p className="truncate text-sm text-muted-foreground">
+   760→   760→                          {order.items
+   761→   761→                            .map((item) => `${formatNumber(item.quantity, locale)}× ${localizedProductName(item)}`)
+   762→   762→                            .join("، ")}
+   763→   763→                        </p>
+   764→   764→                      </TableCell>
+   765→   765→                      <TableCell className="text-sm font-semibold tabular-nums">
+   766→   766→                        {formatToman(order.totalToman, locale)}
+   767→   767→                      </TableCell>
+   768→   768→                      <TableCell className="hidden sm:table-cell">
+   769→   769→                        <Badge
+   770→   770→                          variant="secondary"
+   771→   771→                          className={
+   772→   772→                            order.paymentMethod === "Wallet"
+   773→   773→                              ? "bg-violet-100 text-violet-800 hover:bg-violet-100 dark:bg-violet-950 dark:text-violet-300"
+   774→   774→                              : "bg-amber-100 text-amber-800 hover:bg-amber-100 dark:bg-amber-950 dark:text-amber-300"
+   775→   775→                          }
+   776→   776→                        >
+   777→   777→                          {t(`buffet.pos.payment.${order.paymentMethod.toLowerCase()}`)}
+   778→   778→                        </Badge>
+   779→   779→                      </TableCell>
+   780→   780→                      <TableCell className="hidden text-sm text-muted-foreground lg:table-cell">
+   781→   781→                        {locale === "fa" ? order.branchNameFa : order.branchNameEn}
+   782→   782→                      </TableCell>
+   783→   783→                      <TableCell className="hidden text-sm text-muted-foreground sm:table-cell">
+   784→   784→                        {formatDateTime(order.createdAtUtc, locale)}
+   785→   785→                      </TableCell>
+   786→   786→                    </TableRow>
+   787→   787→                  ))
+   788→   788→                ) : (
+   789→   789→                  <TableRow>
+   790→   790→                    <TableCell colSpan={6} className="py-8 text-center">
+   791→   791→                      <p className="text-sm font-medium">{t("buffet.orders.empty.title")}</p>
+   792→   792→                      <p className="mt-1 text-xs text-muted-foreground">{t("buffet.orders.empty.description")}</p>
+   793→   793→                    </TableCell>
+   794→   794→                  </TableRow>
+   795→   795→                )}
+   796→   796→              </TableBody>
+   797→   797→            </Table>
+   798→   798→          </div>
+   799→   799→
+   800→   800→          <div className="flex items-center justify-between">
+   801→   801→            <p className="text-xs text-muted-foreground">{t("buffet.orders.count", { count: formatNumber(orderCount, locale) })}</p>
+   802→   802→            <div className="flex items-center gap-2">
+   803→   803→              <Button
+   804→   804→                variant="outline"
+   805→   805→                size="sm"
+   806→   806→                disabled={orderPage <= 1 || ordersLoading}
+   807→   807→                onClick={() => setOrderPage((p) => p - 1)}
+   808→   808→              >
+   809→   809→                <ChevronLeft className="h-4 w-4 rtl:rotate-180" />
+   810→   810→                {t("common.prev")}
+   811→   811→              </Button>
+   812→   812→              <span className="text-xs text-muted-foreground">
+   813→   813→                {t("common.page", { page: orderPage, total: orderTotalPages })}
+   814→   814→              </span>
+   815→   815→              <Button
+   816→   816→                variant="outline"
+   817→   817→                size="sm"
+   818→   818→                disabled={orderPage >= orderTotalPages || ordersLoading}
+   819→   819→                onClick={() => setOrderPage((p) => p + 1)}
+   820→   820→              >
+   821→   821→                {t("common.next")}
+   822→   822→                <ChevronRight className="h-4 w-4 rtl:rotate-180" />
+   823→   823→              </Button>
+   824→   824→            </div>
+   825→   825→          </div>
+   826→   826→        </div>
+   827→   827→      ) : null}
+   828→   828→
+   829→   829→      {/* ---------------------------------------------------------------- products tab (admin only) */}
+   830→   830→      {tab === "products" && isAdmin ? (
+   831→   831→        <div className="space-y-4">
+   832→   832→          <div className="flex items-center justify-between">
+   833→   833→            <p className="text-sm text-muted-foreground">{t("buffet.products.subtitle")}</p>
+   834→   834→            <Button
+   835→   835→              size="sm"
+   836→   836→              className="gap-1.5 bg-emerald-600 hover:bg-emerald-700"
+   837→   837→              onClick={() => {
+   838→   838→                setEditingProduct(null);
+   839→   839→                setProductDialogOpen(true);
+   840→   840→              }}
+   841→   841→            >
+   842→   842→              <Plus className="h-4 w-4" />
+   843→   843→              {t("buffet.products.new")}
+   844→   844→            </Button>
+   845→   845→          </div>
+   846→   846→
+   847→   847→          <div className="overflow-x-auto rounded-lg border">
+   848→   848→            <Table>
+   849→   849→              <TableHeader>
+   850→   850→                <TableRow>
+   851→   851→                  <TableHead>{t("buffet.column.product")}</TableHead>
+   852→   852→                  {activeBranches.map((branch) => (
+   853→   853→                    <TableHead key={branch.id}>{locale === "fa" ? branch.nameFa : branch.nameEn}</TableHead>
+   854→   854→                  ))}
+   855→   855→                  <TableHead>{t("buffet.column.status")}</TableHead>
+   856→   856→                  <TableHead className="text-end">{t("buffet.column.actions")}</TableHead>
+   857→   857→                </TableRow>
+   858→   858→              </TableHeader>
+   859→   859→              <TableBody>
+   860→   860→                {products === null && !productsError
+   861→   861→                  ? Array.from({ length: 3 }).map((_, index) => (
+   862→   862→                      <TableRow key={index}>
+   863→   863→                        <TableCell colSpan={2 + activeBranches.length}>
+   864→   864→                          <Skeleton className="h-7 w-full" />
+   865→   865→                        </TableCell>
+   866→   866→                      </TableRow>
+   867→   867→                    ))
+   868→   868→                  : null}
+   869→   869→                {productsError ? (
+   870→   870→                  <TableRow>
+   871→   871→                    <TableCell colSpan={2 + activeBranches.length} className="text-sm text-destructive">
+   872→   872→                      {t("common.error.load")}
+   873→   873→                    </TableCell>
+   874→   874→                  </TableRow>
+   875→   875→                ) : null}
+   876→   876→                {products?.map((product) => (
+   877→   877→                  <TableRow key={product.id}>
+   878→   878→                    <TableCell>
+   879→   879→                      <p className="text-sm font-medium">{localizedProductName(product)}</p>
+   880→   880→                      <p className="text-xs text-muted-foreground" dir="ltr">
+   881→   881→                        {locale === "fa" ? product.nameEn : product.nameFa}
+   882→   882→                      </p>
+   883→   883→                    </TableCell>
+   884→   884→                    {activeBranches.map((branch) => {
+   885→   885→                      const price = product.prices.find((p) => p.branchId === branch.id);
+   886→   886→                      return (
+   887→   887→                        <TableCell key={branch.id} className="text-sm tabular-nums">
+   888→   888→                          {price ? formatToman(price.priceToman, locale) : "—"}
+   889→   889→                        </TableCell>
+   890→   890→                      );
+   891→   891→                    })}
+   892→   892→                    <TableCell>
+   893→   893→                      <Badge
+   894→   894→                        variant="secondary"
+   895→   895→                        className={
+   896→   896→                          product.isActive
+   897→   897→                            ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-950 dark:text-emerald-300"
+   898→   898→                            : "bg-zinc-100 text-zinc-700 hover:bg-zinc-100 dark:bg-zinc-800 dark:text-zinc-300"
+   899→   899→                        }
+   900→   900→                      >
+   901→   901→                        {product.isActive ? t("buffet.status.active") : t("buffet.status.inactive")}
+   902→   902→                      </Badge>
+   903→   903→                    </TableCell>
+   904→   904→                    <TableCell className="text-end">
+   905→   905→                      <Button
+   906→   906→                        variant="outline"
+   907→   907→                        size="sm"
+   908→   908→                        onClick={() => {
+   909→   909→                          setEditingProduct(product);
+   910→   910→                          setProductDialogOpen(true);
+   911→   911→                        }}
+   912→   912→                      >
+   913→   913→                        {t("buffet.products.edit")}
+   914→   914→                      </Button>
+   915→   915→                    </TableCell>
+   916→   916→                  </TableRow>
+   917→   917→                ))}
+   918→   918→              </TableBody>
+   919→   919→            </Table>
+   920→   920→          </div>
+   921→   921→        </div>
+   922→   922→      ) : null}
+   923→   923→
+   924→   924→      <ProductDialog
+   925→   925→        open={productDialogOpen}
+   926→   926→        onOpenChange={setProductDialogOpen}
+   927→   927→        branches={branches}
+   928→   928→        product={editingProduct}
+   929→   929→        onSaved={(saved, mode) => {
+   930→   930→          toast.success(mode === "create" ? t("buffet.product.created") : t("buffet.product.updated"));
+   931→   931→          setRefreshBump((n) => n + 1);
+   932→   932→          void saved;
+   933→   933→        }}
+   934→   934→      />
+   935→   935→    </div>
+   936→   936→  );
+   937→   937→}
+   938→   938→

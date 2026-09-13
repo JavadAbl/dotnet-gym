@@ -272,3 +272,23 @@ Stage Summary:
 - Operator accounts are fully manageable from the UI (admin only) with the safety rails that matter: no self-deactivation, no last-admin lockout, no duplicate usernames, inactive users cannot sign in.
 - xUnit suite must be run on an SDK machine: `cd backend && dotnet test Gms.sln` (UserAdminRulesTests is new).
 - Remaining ideas (not requested): edit display-name/branch, per-user audit trail link (audit middleware already captures the POSTs), force-change-password flag on first login.
+
+---
+Task ID: V2-4 (v2.3 — Role-Based UI Sections)
+Agent: main (Super Z)
+Task: "we have to separate the ui to many major sections. each user after login based on its role, can enter to a section" — Reception (daily jobs) / Management (packages, buffet products, users, all management stuff) / Buffet (operator creates buffet factors)
+
+Work Log:
+- Re-conformed baseline first: users management (V2-3) already complete on disk; read plan/progress/worklog + app-shell, page, buffet-view, dashboard-view, login-view, i18n; demo seeds: admin/Admin@123, reception.north|south, buffet.north, coach.north|south (Operator@123).
+- Design (no backend change needed — endpoint policies already enforce roles): 4 sections defined purely in the shell — reception [admin+reception: dashboard, members, attendance, sales, wallet, coaching, buffet], management [admin: dashboard, packages, buffetProducts, branches, users], buffet [admin+buffet: buffet], coaching [admin+coach: coaching]; role → landing section: admin→Management, reception→Reception, buffet→Buffet, coach→Coaching.
+- app-shell.tsx rewritten: `SectionId` + `SECTIONS` config (roles/home/views), `VIEW_ICONS`/`SECTION_ICONS`, exported helpers `sectionsForRole` / `defaultSectionFor` / `sectionHome`; AppShell now takes `section` + `onSectionChange`; sidebar shows a section SWITCHER for multi-section users (admin only in practice) or a static section badge (icon + fa label + hint) for single-section operators; nav renders only the active section's ordered views; mobile header gains a section dropdown next to the view icons; header title now "Section · View".
+- New ViewKey `buffetProducts` splits product management out of buffet: BuffetView gained `mode?: "operations" | "management"` — operations = POS+orders tabs (reception/buffet sections), management = products-only tab (Management section); title/subtitle swap via nav.buffetProducts + buffet.products.subtitle; admin products tab no longer leaks into the operational POS.
+- dashboard-view.tsx: `section` prop ("reception" | "management") — Management quick actions: New package / New product / New user / Branches (reuses packages.create, buffet.products.new, users.create, nav.branches keys); Reception keeps the 6 daily-jobs actions; KPIs/reports untouched.
+- page.tsx Workspace: section+view state initialized from `defaultSectionFor(role)` / `sectionHome(...)` (fresh mount per sign-in, so role changes always re-land correctly); `switchSection` resets to the section home; new dashboard callbacks wired; `buffetProducts` view renders BuffetView mode="management".
+- login-view: demo account rows show "role · section"; i18n fa/en: sections.* (+hint), nav.buffetProducts; removed dead nav.groups.* keys (only app-shell used them).
+- Verified: bun run lint clean; tsc --noEmit → 0 errors under src/; next build clean; browser E2E (fa RTL, demo) — admin lands in Management (4-section switcher, management nav, admin quick actions), switched through Reception/Buffet/Coaching; buffet-products view shows the per-branch price table; buffet.north lands in Buffet with NO switcher, branch pinned to claim, POS default — created a real factor (member Ali + 2× product → "سفارش ثبت شد" toast); coach.north lands in Coaching single-section; reception.north lands in Reception with all 7 daily views and zero management items; EN locale renders "Reception · Dashboard"; zero console/page errors. Screenshots: download/gms-v23-*.png (7).
+
+Stage Summary:
+- The UI is now organized into role-gated major sections: receptionists see only daily jobs, the buffet operator works in a focused factor-taking POS, coaches get their coaching workspace, and the admin manages everything from Management (with on-demand access to all sections via the switcher).
+- Pure frontend refactor — no schema, contract, demo-adapter, or backend changes; v1/v2/v2.1/v2.2 behaviors unaffected.
+- Remaining ideas (not requested): persist the admin's last active section in localStorage; per-section colored theming; a dedicated management reports page split from the dashboard.

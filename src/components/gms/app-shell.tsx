@@ -1,7 +1,24 @@
 "use client";
 
 import * as React from "react";
-import { Activity, ClipboardList, Coffee, Dumbbell, LayoutDashboard, Languages, LogOut, MapPin, ReceiptText, ScanLine, UserCog, Users, Wallet } from "lucide-react";
+import {
+  Activity,
+  Briefcase,
+  ClipboardList,
+  Coffee,
+  ConciergeBell,
+  Dumbbell,
+  Languages,
+  LayoutDashboard,
+  LogOut,
+  MapPin,
+  ReceiptText,
+  ScanLine,
+  ShoppingBasket,
+  UserCog,
+  Users,
+  Wallet,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,26 +33,111 @@ import { isDemoMode } from "@/lib/gms/api";
 import type { Role } from "@/lib/gms/types";
 import { useAuth, useI18n } from "./providers";
 
-export type ViewKey = "dashboard" | "members" | "attendance" | "sales" | "wallet" | "coaching" | "buffet" | "packages" | "branches" | "users";
+export type ViewKey =
+  | "dashboard"
+  | "members"
+  | "attendance"
+  | "sales"
+  | "wallet"
+  | "coaching"
+  | "buffet"
+  | "buffetProducts"
+  | "packages"
+  | "branches"
+  | "users";
 
-const NAV: Array<{ key: ViewKey; icon: React.ComponentType<{ className?: string }>; group: "operations" | "setup"; staff: Role[] }> = [
-  { key: "dashboard", icon: LayoutDashboard, group: "operations", staff: ["admin", "reception", "buffet", "coach"] },
-  { key: "members", icon: Users, group: "operations", staff: ["admin", "reception", "buffet", "coach"] },
-  { key: "attendance", icon: ScanLine, group: "operations", staff: ["admin", "reception", "buffet", "coach"] },
-  { key: "sales", icon: ReceiptText, group: "operations", staff: ["admin", "reception", "buffet", "coach"] },
-  { key: "wallet", icon: Wallet, group: "operations", staff: ["admin", "reception"] },
-  { key: "coaching", icon: ClipboardList, group: "operations", staff: ["admin", "reception", "buffet", "coach"] },
-  { key: "buffet", icon: Coffee, group: "operations", staff: ["admin", "reception", "buffet"] },
-  { key: "packages", icon: Dumbbell, group: "setup", staff: ["admin", "reception", "buffet", "coach"] },
-  { key: "branches", icon: MapPin, group: "setup", staff: ["admin", "reception", "buffet", "coach"] },
-  { key: "users", icon: UserCog, group: "setup", staff: ["admin"] },
+/** v2.3 — major UI sections; each operator lands in the section that matches their role. */
+export type SectionId = "reception" | "management" | "buffet" | "coaching";
+
+const VIEW_ICONS: Record<ViewKey, React.ComponentType<{ className?: string }>> = {
+  dashboard: LayoutDashboard,
+  members: Users,
+  attendance: ScanLine,
+  sales: ReceiptText,
+  wallet: Wallet,
+  coaching: ClipboardList,
+  buffet: Coffee,
+  buffetProducts: ShoppingBasket,
+  packages: Dumbbell,
+  branches: MapPin,
+  users: UserCog,
+};
+
+const SECTION_ICONS: Record<SectionId, React.ComponentType<{ className?: string }>> = {
+  reception: ConciergeBell,
+  management: Briefcase,
+  buffet: Coffee,
+  coaching: ClipboardList,
+};
+
+interface SectionDef {
+  id: SectionId;
+  /** Roles allowed to enter this section (admin is a member of every section). */
+  roles: Role[];
+  /** View the section opens on. */
+  home: ViewKey;
+  /** Sidebar order for the section's views. */
+  views: ViewKey[];
+}
+
+export const SECTIONS: SectionDef[] = [
+  {
+    id: "reception",
+    roles: ["admin", "reception"],
+    home: "dashboard",
+    views: ["dashboard", "members", "attendance", "sales", "wallet", "coaching", "buffet"],
+  },
+  {
+    id: "management",
+    roles: ["admin"],
+    home: "dashboard",
+    views: ["dashboard", "packages", "buffetProducts", "branches", "users"],
+  },
+  {
+    id: "buffet",
+    roles: ["admin", "buffet"],
+    home: "buffet",
+    views: ["buffet"],
+  },
+  {
+    id: "coaching",
+    roles: ["admin", "coach"],
+    home: "coaching",
+    views: ["coaching"],
+  },
 ];
 
+export function sectionsForRole(role: Role): SectionId[] {
+  return SECTIONS.filter((section) => section.roles.includes(role)).map((section) => section.id);
+}
+
+/** Landing section right after sign-in, per role (admin manages → Management). */
+export function defaultSectionFor(role: Role): SectionId {
+  switch (role) {
+    case "admin":
+      return "management";
+    case "buffet":
+      return "buffet";
+    case "coach":
+      return "coaching";
+    default:
+      return "reception";
+  }
+}
+
+export function sectionHome(section: SectionId): ViewKey {
+  return SECTIONS.find((s) => s.id === section)!.home;
+}
+
 export function AppShell({
+  section,
+  onSectionChange,
   view,
   onViewChange,
   children,
 }: {
+  section: SectionId;
+  onSectionChange: (section: SectionId) => void;
   view: ViewKey;
   onViewChange: (view: ViewKey) => void;
   children: React.ReactNode;
@@ -43,11 +145,11 @@ export function AppShell({
   const { t, locale, setLocale } = useI18n();
   const { session, signOut } = useAuth();
   const user = session!.user;
+  const mySections = React.useMemo(() => sectionsForRole(user.role), [user.role]);
+  const currentSection = SECTIONS.find((s) => s.id === section) ?? SECTIONS[0];
+  const SectionIcon = SECTION_ICONS[currentSection.id];
 
-  const groups: Array<{ id: "operations" | "setup"; label: string }> = [
-    { id: "operations", label: t("nav.groups.operations") },
-    { id: "setup", label: t("nav.groups.setup") },
-  ];
+  const sectionNav = currentSection.views;
 
   return (
     <div className="flex min-h-screen">
@@ -63,35 +165,66 @@ export function AppShell({
           </div>
         </div>
 
-        <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-2">
-          {groups.map((group) => (
-            <div key={group.id}>
-              <p className="px-2 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                {group.label}
-              </p>
-              <div className="space-y-1">
-                {NAV.filter((item) => item.group === group.id && item.staff.includes(user.role)).map((item) => {
-                  const Icon = item.icon;
-                  const active = view === item.key;
-                  return (
-                    <button
-                      key={item.key}
-                      type="button"
-                      onClick={() => onViewChange(item.key)}
-                      className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                        active
-                          ? "bg-emerald-600 text-white shadow-sm"
-                          : "text-muted-foreground hover:bg-accent hover:text-foreground"
-                      }`}
-                    >
-                      <Icon className="h-4 w-4" />
-                      {t(`nav.${item.key}`)}
-                    </button>
-                  );
-                })}
-              </div>
+        {/* section switcher — operators with a single section see a static badge instead */}
+        <div className="px-3 pb-1">
+          <p className="px-2 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            {t("sections.title")}
+          </p>
+          {mySections.length > 1 ? (
+            <div className="space-y-1">
+              {mySections.map((id) => {
+                const Icon = SECTION_ICONS[id];
+                const active = id === section;
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => onSectionChange(id)}
+                    className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${
+                      active
+                        ? "bg-emerald-600/10 text-emerald-700 dark:text-emerald-300"
+                        : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                    }`}
+                  >
+                    <Icon className="h-4 w-4" />
+                    {t(`sections.${id}`)}
+                  </button>
+                );
+              })}
             </div>
-          ))}
+          ) : (
+            <div className="flex items-center gap-3 rounded-lg bg-emerald-600/10 px-3 py-2 text-sm font-semibold text-emerald-700 dark:text-emerald-300">
+              <SectionIcon className="h-4 w-4" />
+              <span className="min-w-0">
+                <span className="block truncate">{t(`sections.${currentSection.id}`)}</span>
+                <span className="block truncate text-[11px] font-normal text-muted-foreground">
+                  {t(`sections.${currentSection.id}.hint`)}
+                </span>
+              </span>
+            </div>
+          )}
+        </div>
+
+        <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-3">
+          {sectionNav.map((key) => {
+            const Icon = VIEW_ICONS[key];
+            const active = view === key;
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => onViewChange(key)}
+                className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                  active
+                    ? "bg-emerald-600 text-white shadow-sm"
+                    : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                }`}
+              >
+                <Icon className="h-4 w-4" />
+                {t(`nav.${key}`)}
+              </button>
+            );
+          })}
         </nav>
 
         <div className="border-t px-4 py-3">
@@ -113,15 +246,43 @@ export function AppShell({
           <div className="flex h-14 items-center justify-between gap-3 px-4 md:px-6">
             {/* mobile nav */}
             <div className="flex items-center gap-1 md:hidden">
-              {NAV.filter((item) => item.staff.includes(user.role)).map((item) => {
-                const Icon = item.icon;
-                const active = view === item.key;
+              {mySections.length > 1 ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      aria-label={t("sections.title")}
+                      className={`flex h-9 w-9 items-center justify-center rounded-lg ${
+                        mySections.includes(section) ? "bg-emerald-600 text-white" : "text-muted-foreground hover:bg-accent"
+                      }`}
+                    >
+                      <SectionIcon className="h-4 w-4" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    <DropdownMenuLabel>{t("sections.title")}</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {mySections.map((id) => {
+                      const Icon = SECTION_ICONS[id];
+                      return (
+                        <DropdownMenuItem key={id} onClick={() => onSectionChange(id)}>
+                          <Icon className="h-4 w-4" />
+                          {t(`sections.${id}`)}
+                        </DropdownMenuItem>
+                      );
+                    })}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : null}
+              {sectionNav.map((key) => {
+                const Icon = VIEW_ICONS[key];
+                const active = view === key;
                 return (
                   <button
-                    key={item.key}
+                    key={key}
                     type="button"
-                    aria-label={t(`nav.${item.key}`)}
-                    onClick={() => onViewChange(item.key)}
+                    aria-label={t(`nav.${key}`)}
+                    onClick={() => onViewChange(key)}
                     className={`flex h-9 w-9 items-center justify-center rounded-lg ${
                       active ? "bg-emerald-600 text-white" : "text-muted-foreground hover:bg-accent"
                     }`}
@@ -132,7 +293,7 @@ export function AppShell({
               })}
             </div>
             <h1 className="hidden truncate text-sm font-semibold text-muted-foreground md:block">
-              {t(`nav.${view}`)}
+              {t(`sections.${section}`)} · {t(`nav.${view}`)}
             </h1>
 
             <div className="flex items-center gap-2">

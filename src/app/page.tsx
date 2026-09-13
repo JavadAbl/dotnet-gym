@@ -4,7 +4,7 @@ import * as React from "react";
 import { Toaster, toast } from "sonner";
 import { listBranches, listPackages, setMemberStatus } from "@/lib/gms/api";
 import type { Branch, ExercisePackage, Member, MemberPackage, MemberStatus } from "@/lib/gms/types";
-import { AppShell, type ViewKey } from "@/components/gms/app-shell";
+import { AppShell, defaultSectionFor, sectionHome, type SectionId, type ViewKey } from "@/components/gms/app-shell";
 import { AttendanceView } from "@/components/gms/attendance-view";
 import { BranchesView } from "@/components/gms/branches-view";
 import { UsersView } from "@/components/gms/users-view";
@@ -52,7 +52,18 @@ function Gate() {
 /** Authenticated area: shell + client-side view switching (single-route constraint). */
 function Workspace() {
   const { t } = useI18n();
-  const [view, setView] = React.useState<ViewKey>("dashboard");
+  const { session } = useAuth();
+  const role = session!.user.role;
+
+  // v2.3 — section-based UI: each role lands in its own section; admin can switch between all of them.
+  const [section, setSection] = React.useState<SectionId>(() => defaultSectionFor(role));
+  const [view, setView] = React.useState<ViewKey>(() => sectionHome(defaultSectionFor(role)));
+
+  function switchSection(next: SectionId) {
+    setSection(next);
+    setView(sectionHome(next));
+  }
+
   const [branches, setBranches] = React.useState<Branch[]>([]);
   const [packages, setPackages] = React.useState<ExercisePackage[]>([]);
   const [membersRefresh, setMembersRefresh] = React.useState(0);
@@ -149,15 +160,20 @@ function Workspace() {
   }
 
   return (
-    <AppShell view={view} onViewChange={setView}>
+    <AppShell section={section} onSectionChange={switchSection} view={view} onViewChange={setView}>
       {view === "dashboard" ? (
         <DashboardView
+          section={section === "management" ? "management" : "reception"}
           onOpenAttendance={() => setView("attendance")}
           onOpenBuffet={() => setView("buffet")}
           onOpenCoaching={() => setView("coaching")}
           onCreateMember={openCreate}
           onSell={() => openSell()}
           onTopUp={() => openTopUp()}
+          onOpenPackages={() => setView("packages")}
+          onOpenBuffetProducts={() => setView("buffetProducts")}
+          onOpenBranches={() => setView("branches")}
+          onOpenUsers={() => setView("users")}
         />
       ) : null}
       {view === "members" ? (
@@ -183,6 +199,9 @@ function Workspace() {
       ) : null}
       {view === "coaching" ? <CoachingView branches={branches} /> : null}
       {view === "buffet" ? <BuffetView branches={branches} refreshSignal={buffetRefresh} /> : null}
+      {view === "buffetProducts" ? (
+        <BuffetView branches={branches} refreshSignal={buffetRefresh} mode="management" />
+      ) : null}
       {view === "packages" ? <PackagesView /> : null}
       {view === "branches" ? <BranchesView /> : null}
       {view === "users" ? <UsersView /> : null}
