@@ -4,7 +4,7 @@ import * as React from "react";
 import { Toaster, toast } from "sonner";
 import { listBranches, listPackages, setMemberStatus } from "@/lib/gms/api";
 import type { Branch, ExercisePackage, Member, MemberPackage, MemberStatus } from "@/lib/gms/types";
-import { AppShell, defaultSectionFor, sectionHome, type SectionId, type ViewKey } from "@/components/gms/app-shell";
+import { AppShell, sectionHome, type SectionId, type ViewKey } from "@/components/gms/app-shell";
 import { AttendanceView } from "@/components/gms/attendance-view";
 import { BranchesView } from "@/components/gms/branches-view";
 import { UsersView } from "@/components/gms/users-view";
@@ -18,6 +18,7 @@ import { MembersView } from "@/components/gms/members-view";
 import { PackagesView } from "@/components/gms/packages-view";
 import { RefundDialog } from "@/components/gms/refund-dialog";
 import { SalesView } from "@/components/gms/sales-view";
+import { SectionPicker } from "@/components/gms/section-picker";
 import { SellPackageDialog } from "@/components/gms/sell-package-dialog";
 import { TopUpDialog } from "@/components/gms/top-up-dialog";
 import { WalletView } from "@/components/gms/wallet-view";
@@ -49,20 +50,14 @@ function Gate() {
   return session ? <Workspace /> : <LoginView />;
 }
 
-/** Authenticated area: shell + client-side view switching (single-route constraint). */
+/** Authenticated area: section picker first, then shell + client-side view switching (single-route constraint). */
 function Workspace() {
   const { t } = useI18n();
-  const { session } = useAuth();
-  const role = session!.user.role;
 
-  // v2.3 — section-based UI: each role lands in its own section; admin can switch between all of them.
-  const [section, setSection] = React.useState<SectionId>(() => defaultSectionFor(role));
-  const [view, setView] = React.useState<ViewKey>(() => sectionHome(defaultSectionFor(role)));
-
-  function switchSection(next: SectionId) {
-    setSection(next);
-    setView(sectionHome(next));
-  }
+  // v2.4 — after login the user picks a section from the large-card picker; sections are
+  // never selected in the sidebar (the sidebar badge only leads back to this picker).
+  const [section, setSection] = React.useState<SectionId | null>(null);
+  const [view, setView] = React.useState<ViewKey | null>(null);
 
   const [branches, setBranches] = React.useState<Branch[]>([]);
   const [packages, setPackages] = React.useState<ExercisePackage[]>([]);
@@ -159,8 +154,25 @@ function Workspace() {
     setMembersRefresh((n) => n + 1);
   }
 
+  function enterSection(next: SectionId) {
+    setSection(next);
+    setView(sectionHome(next));
+  }
+
+  if (section === null || view === null) {
+    return <SectionPicker onEnter={enterSection} />;
+  }
+
   return (
-    <AppShell section={section} onSectionChange={switchSection} view={view} onViewChange={setView}>
+    <AppShell
+      section={section}
+      onSwitchSection={() => {
+        setSection(null);
+        setView(null);
+      }}
+      view={view}
+      onViewChange={setView}
+    >
       {view === "dashboard" ? (
         <DashboardView
           section={section === "management" ? "management" : "reception"}

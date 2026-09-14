@@ -10,6 +10,7 @@ import {
   Dumbbell,
   Languages,
   LayoutDashboard,
+  LayoutGrid,
   LogOut,
   MapPin,
   ReceiptText,
@@ -63,7 +64,7 @@ const VIEW_ICONS: Record<ViewKey, React.ComponentType<{ className?: string }>> =
   users: UserCog,
 };
 
-const SECTION_ICONS: Record<SectionId, React.ComponentType<{ className?: string }>> = {
+export const SECTION_ICONS: Record<SectionId, React.ComponentType<{ className?: string }>> = {
   reception: ConciergeBell,
   management: Briefcase,
   buffet: Coffee,
@@ -107,37 +108,20 @@ export const SECTIONS: SectionDef[] = [
   },
 ];
 
-export function sectionsForRole(role: Role): SectionId[] {
-  return SECTIONS.filter((section) => section.roles.includes(role)).map((section) => section.id);
-}
-
-/** Landing section right after sign-in, per role (admin manages → Management). */
-export function defaultSectionFor(role: Role): SectionId {
-  switch (role) {
-    case "admin":
-      return "management";
-    case "buffet":
-      return "buffet";
-    case "coach":
-      return "coaching";
-    default:
-      return "reception";
-  }
-}
-
 export function sectionHome(section: SectionId): ViewKey {
   return SECTIONS.find((s) => s.id === section)!.home;
 }
 
 export function AppShell({
   section,
-  onSectionChange,
+  onSwitchSection,
   view,
   onViewChange,
   children,
 }: {
   section: SectionId;
-  onSectionChange: (section: SectionId) => void;
+  /** v2.4 — returns to the section picker; sections are never selected inside the sidebar. */
+  onSwitchSection: () => void;
   view: ViewKey;
   onViewChange: (view: ViewKey) => void;
   children: React.ReactNode;
@@ -145,7 +129,6 @@ export function AppShell({
   const { t, locale, setLocale } = useI18n();
   const { session, signOut } = useAuth();
   const user = session!.user;
-  const mySections = React.useMemo(() => sectionsForRole(user.role), [user.role]);
   const currentSection = SECTIONS.find((s) => s.id === section) ?? SECTIONS[0];
   const SectionIcon = SECTION_ICONS[currentSection.id];
 
@@ -165,44 +148,23 @@ export function AppShell({
           </div>
         </div>
 
-        {/* section switcher — operators with a single section see a static badge instead */}
+        {/* v2.4 — current section badge; clicking it goes back to the section picker (cards at login). */}
         <div className="px-3 pb-1">
-          <p className="px-2 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-            {t("sections.title")}
-          </p>
-          {mySections.length > 1 ? (
-            <div className="space-y-1">
-              {mySections.map((id) => {
-                const Icon = SECTION_ICONS[id];
-                const active = id === section;
-                return (
-                  <button
-                    key={id}
-                    type="button"
-                    onClick={() => onSectionChange(id)}
-                    className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${
-                      active
-                        ? "bg-emerald-600/10 text-emerald-700 dark:text-emerald-300"
-                        : "text-muted-foreground hover:bg-accent hover:text-foreground"
-                    }`}
-                  >
-                    <Icon className="h-4 w-4" />
-                    {t(`sections.${id}`)}
-                  </button>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="flex items-center gap-3 rounded-lg bg-emerald-600/10 px-3 py-2 text-sm font-semibold text-emerald-700 dark:text-emerald-300">
-              <SectionIcon className="h-4 w-4" />
-              <span className="min-w-0">
-                <span className="block truncate">{t(`sections.${currentSection.id}`)}</span>
-                <span className="block truncate text-[11px] font-normal text-muted-foreground">
-                  {t(`sections.${currentSection.id}.hint`)}
-                </span>
+          <button
+            type="button"
+            onClick={onSwitchSection}
+            title={t("sections.switch")}
+            className="group flex w-full items-center gap-3 rounded-lg bg-emerald-600/10 px-3 py-2 text-start text-sm font-semibold text-emerald-700 transition-colors hover:bg-emerald-600/20 dark:text-emerald-300"
+          >
+            <SectionIcon className="h-4 w-4 shrink-0" />
+            <span className="min-w-0 flex-1">
+              <span className="block truncate">{t(`sections.${currentSection.id}`)}</span>
+              <span className="block truncate text-[11px] font-normal text-muted-foreground">
+                {t(`sections.${currentSection.id}.hint`)}
               </span>
-            </div>
-          )}
+            </span>
+            <LayoutGrid className="h-4 w-4 shrink-0 opacity-50 transition-opacity group-hover:opacity-100" />
+          </button>
         </div>
 
         <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-3">
@@ -244,36 +206,16 @@ export function AppShell({
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-20 border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
           <div className="flex h-14 items-center justify-between gap-3 px-4 md:px-6">
-            {/* mobile nav */}
+            {/* mobile nav — grid button returns to the section picker */}
             <div className="flex items-center gap-1 md:hidden">
-              {mySections.length > 1 ? (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      type="button"
-                      aria-label={t("sections.title")}
-                      className={`flex h-9 w-9 items-center justify-center rounded-lg ${
-                        mySections.includes(section) ? "bg-emerald-600 text-white" : "text-muted-foreground hover:bg-accent"
-                      }`}
-                    >
-                      <SectionIcon className="h-4 w-4" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start">
-                    <DropdownMenuLabel>{t("sections.title")}</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    {mySections.map((id) => {
-                      const Icon = SECTION_ICONS[id];
-                      return (
-                        <DropdownMenuItem key={id} onClick={() => onSectionChange(id)}>
-                          <Icon className="h-4 w-4" />
-                          {t(`sections.${id}`)}
-                        </DropdownMenuItem>
-                      );
-                    })}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              ) : null}
+              <button
+                type="button"
+                aria-label={t("sections.switch")}
+                onClick={onSwitchSection}
+                className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-600 text-white"
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </button>
               {sectionNav.map((key) => {
                 const Icon = VIEW_ICONS[key];
                 const active = view === key;

@@ -292,3 +292,21 @@ Stage Summary:
 - The UI is now organized into role-gated major sections: receptionists see only daily jobs, the buffet operator works in a focused factor-taking POS, coaches get their coaching workspace, and the admin manages everything from Management (with on-demand access to all sections via the switcher).
 - Pure frontend refactor — no schema, contract, demo-adapter, or backend changes; v1/v2/v2.1/v2.2 behaviors unaffected.
 - Remaining ideas (not requested): persist the admin's last active section in localStorage; per-section colored theming; a dedicated management reports page split from the dashboard.
+
+---
+Task ID: V2-5 (v2.4 — Section Picker at Login)
+Agent: main (Super Z)
+Task: "بخش‌های سامانه should not selected in sidebar. they should be listed at user login in large cards, then each card take user to the section with its own sidebar" — replace the v2.3 sidebar section switcher/auto-landing with a post-login large-card section picker
+
+Work Log:
+- Re-conformed baseline: v2.3 sections (reception/management/buffet/coaching) already on disk with scoped sidebars and the admin switcher inside the sidebar; users mgmt (V2-3) and package creation (V2-2) intact.
+- section-picker.tsx (new): full-screen post-login screen; role-gated large cards from the same SECTIONS config (roles/home/views), per-section colored icon tiles + view chips + Enter CTA; header holds demo badge, fa/en toggle, sign-out; RTL-aware hover arrow.
+- app-shell.tsx: removed the desktop section switcher list and the mobile section dropdown; sidebar keeps only a clickable section badge (→ picker) and the mobile header a grid button (→ picker); AppShell prop onSectionChange → onSwitchSection(); exported SECTION_ICONS; deleted dead exports defaultSectionFor/sectionsForRole.
+- page.tsx Workspace: section/view state starts null → renders SectionPicker; enterSection(section) sets section + sectionHome; badge/grid-button resets both to null (picker re-evaluates role fresh each time). Fixed an intermediate edit that had mis-ordered hooks before the early return — all hooks restored above the return.
+- i18n.ts: sections.pickTitle / pickSubtitle({name}) / switch / enter in fa + en.
+- Verified: bun run lint clean; tsc --noEmit → 0 errors under src/; next build clean; agent-browser E2E — admin → 4-card picker (fa) → Management (scoped sidebar, badge, "مدیریت · داشبورد") → badge → picker → Reception (7 views) → EN picker verified → sign-out; buffet.north → single-card picker → Buffet POS; mobile 390px grid button works; zero console errors. Screenshots: download/gms-v24-*.png (6).
+- Docs: gms-progress.md gained "v2.4 — Section Picker at Login" (all boxes checked); this entry.
+
+Stage Summary:
+- Sections are now chosen exclusively from the post-login card screen; the sidebar belongs to the active section alone (its views + a badge that leads back to the picker). Pure frontend refactor — no schema, contract, demo-adapter, or backend changes.
+- Remaining ideas (not requested): persist the operator's last section in localStorage so the picker pre-highlights it; per-section accent theming inside the shell.
