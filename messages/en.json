@@ -1,0 +1,72 @@
+{
+  "app": {
+    "name": "Gym Management System",
+    "shortName": "GMS",
+    "tagline": "Members, packages, buffet and coaches — all in one place"
+  },
+  "login": {
+    "title": "Sign in",
+    "subtitle": "Sign in with your account to continue",
+    "userName": "Username or mobile number",
+    "userNamePlaceholder": "e.g. admin",
+    "password": "Password",
+    "passwordPlaceholder": "Enter your password",
+    "submit": "Sign in",
+    "submitting": "Signing in…",
+    "demoTitle": "Demo accounts (development only)",
+    "demoAdmin": "Administrator",
+    "demoReception": "Reception",
+    "demoBuffet": "Buffet",
+    "demoCoach": "Coach"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "welcome": "Welcome, {name}",
+    "signedInAs": "Signed in as:",
+    "sectionsTitle": "System sections",
+    "sectionsSubtitle": "Sections relevant to your role",
+    "logout": "Log out"
+  },
+  "roles": {
+    "admin": {
+      "label": "Administrator",
+      "description": "Branches, packages, pricing, operators and reports",
+      "phase": 8,
+      "comingSoon": "Coming soon — phase 8"
+    },
+    "reception": {
+      "label": "Reception",
+      "description": "Members, package sales, wallet top-ups and check-ins",
+      "phase": 4,
+      "comingSoon": "Coming soon — phase 4"
+    },
+    "buffet": {
+      "label": "Buffet",
+      "description": "Buffet sales factors paid by cash or wallet",
+      "phase": 6,
+      "comingSoon": "Coming soon — phase 6"
+    },
+    "coach": {
+      "label": "Coach",
+      "description": "Member sessions, workout plans and progress tracking",
+      "phase": 7,
+      "comingSoon": "Coming soon — phase 7"
+    }
+  },
+  "common": {
+    "language": "فارسی",
+    "comingSoon": "Coming soon — phase {phase}",
+    "loading": "Loading…",
+    "retry": "Try again",
+    "sessionExpired": "Your session has expired. Please sign in again."
+  },
+  "errors": {
+    "AUTH_INVALID_CREDENTIALS": "Incorrect username or password.",
+    "AUTH_UNAUTHENTICATED": "Please sign in first.",
+    "AUTH_FORBIDDEN": "You do not have access.",
+    "AUTH_INVALID_REFRESH_TOKEN": "Session expired; please sign in again.",
+    "BACKEND_UNREACHABLE": "Cannot reach the backend service (port 5000). Make sure it is running.",
+    "INTERNAL_ERROR": "Unexpected server error.",
+    "GENERIC": "Something went wrong. Please try again."
+  }
+}

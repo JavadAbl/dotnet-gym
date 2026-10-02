@@ -1,0 +1,72 @@
+{
+  "app": {
+    "name": "سامانه مدیریت باشگاه",
+    "shortName": "GMS",
+    "tagline": "مدیریت اعضا، بسته‌های تمرینی، بوفه و مربیان — همه‌جا یک‌جا"
+  },
+  "login": {
+    "title": "ورود به سامانه",
+    "subtitle": "برای ادامه، با حساب کاربری خود وارد شوید",
+    "userName": "نام کاربری یا شماره موبایل",
+    "userNamePlaceholder": "مثلاً admin",
+    "password": "رمز عبور",
+    "passwordPlaceholder": "رمز عبور خود را وارد کنید",
+    "submit": "ورود",
+    "submitting": "در حال ورود…",
+    "demoTitle": "حساب‌های نمونه (فقط توسعه)",
+    "demoAdmin": "مدیر سیستم",
+    "demoReception": "پذیرش",
+    "demoBuffet": "بوفه",
+    "demoCoach": "مربی"
+  },
+  "dashboard": {
+    "title": "پیشخوان",
+    "welcome": "خوش آمدید، {name}",
+    "signedInAs": "ورود با نقش‌های:",
+    "sectionsTitle": "بخش‌های سامانه",
+    "sectionsSubtitle": "بخش‌های مرتبط با نقش شما",
+    "logout": "خروج"
+  },
+  "roles": {
+    "admin": {
+      "label": "مدیر",
+      "description": "مدیریت شعبه‌ها، بسته‌ها، قیمت‌گذاری، اپراتورها و گزارش‌ها",
+      "phase": 8,
+      "comingSoon": "به‌زودی — فاز ۸"
+    },
+    "reception": {
+      "label": "پذیرش",
+      "description": "ثبت عضو، فروش بسته، شارژ کیف پول، ثبت ورود اعضا",
+      "phase": 4,
+      "comingSoon": "به‌زودی — فاز ۴"
+    },
+    "buffet": {
+      "label": "بوفه",
+      "description": "ثبت فاکتور فروش محصولات بوفه با کش یا کیف پول",
+      "phase": 6,
+      "comingSoon": "به‌زودی — فاز ۶"
+    },
+    "coach": {
+      "label": "مربی",
+      "description": "ثبت جلسات اعضا، برنامه تمرینی و پیگیری پیشرفت",
+      "phase": 7,
+      "comingSoon": "به‌زودی — فاز ۷"
+    }
+  },
+  "common": {
+    "language": "English",
+    "comingSoon": "به‌زودی — فاز {phase}",
+    "loading": "در حال بارگذاری…",
+    "retry": "تلاش دوباره",
+    "sessionExpired": "نشست شما منقضی شده است. دوباره وارد شوید."
+  },
+  "errors": {
+    "AUTH_INVALID_CREDENTIALS": "نام کاربری یا رمز عبور اشتباه است.",
+    "AUTH_UNAUTHENTICATED": "ابتدا وارد سامانه شوید.",
+    "AUTH_FORBIDDEN": "دسترسی لازم را ندارید.",
+    "AUTH_INVALID_REFRESH_TOKEN": "نشست منقضی شده است؛ دوباره وارد شوید.",
+    "BACKEND_UNREACHABLE": "ارتباط با سرور برقرار نشد. مطمئن شوید سرویس پشتیبان (پورت 5000) اجراست.",
+    "INTERNAL_ERROR": "خطای غیرمنتظره در سرور.",
+    "GENERIC": "خطایی رخ داد. دوباره تلاش کنید."
+  }
+}

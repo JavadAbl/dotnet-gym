@@ -1,0 +1,65 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Gms.Api/Gms.Api.csproj" />
+    <Project Path="src/Gms.BuildingBlocks/Gms.BuildingBlocks.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/" />
+  <Folder Name="/src/Modules/Attendance/">
+    <Project Path="src/Modules/Attendance/Gms.Modules.Attendance.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Attendance/Public/">
+    <Project Path="src/Modules/Attendance/Public/Gms.Modules.Attendance.Public.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Branches/">
+    <Project Path="src/Modules/Branches/Gms.Modules.Branches.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Branches/Public/">
+    <Project Path="src/Modules/Branches/Public/Gms.Modules.Branches.Public.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Buffet/">
+    <Project Path="src/Modules/Buffet/Gms.Modules.Buffet.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Buffet/Public/">
+    <Project Path="src/Modules/Buffet/Public/Gms.Modules.Buffet.Public.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Catalog/">
+    <Project Path="src/Modules/Catalog/Gms.Modules.Catalog.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Catalog/Public/">
+    <Project Path="src/Modules/Catalog/Public/Gms.Modules.Catalog.Public.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Coaching/">
+    <Project Path="src/Modules/Coaching/Gms.Modules.Coaching.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Coaching/Public/">
+    <Project Path="src/Modules/Coaching/Public/Gms.Modules.Coaching.Public.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Identity/">
+    <Project Path="src/Modules/Identity/Gms.Modules.Identity.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Identity/Public/">
+    <Project Path="src/Modules/Identity/Public/Gms.Modules.Identity.Public.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Members/">
+    <Project Path="src/Modules/Members/Gms.Modules.Members.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Members/Public/">
+    <Project Path="src/Modules/Members/Public/Gms.Modules.Members.Public.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Sales/">
+    <Project Path="src/Modules/Sales/Gms.Modules.Sales.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Sales/Public/">
+    <Project Path="src/Modules/Sales/Public/Gms.Modules.Sales.Public.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Wallet/">
+    <Project Path="src/Modules/Wallet/Gms.Modules.Wallet.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Wallet/Public/">
+    <Project Path="src/Modules/Wallet/Public/Gms.Modules.Wallet.Public.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Gms.IntegrationTests/Gms.IntegrationTests.csproj" />
+    <Project Path="tests/Gms.UnitTests/Gms.UnitTests.csproj" />
+  </Folder>
+</Solution>

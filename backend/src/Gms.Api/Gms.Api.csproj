@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.11" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.11">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="10.2.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Gms.BuildingBlocks\Gms.BuildingBlocks.csproj" />
+    <ProjectReference Include="..\Modules\Identity\Gms.Modules.Identity.csproj" />
+    <ProjectReference Include="..\Modules\Members\Gms.Modules.Members.csproj" />
+    <ProjectReference Include="..\Modules\Branches\Gms.Modules.Branches.csproj" />
+    <ProjectReference Include="..\Modules\Catalog\Gms.Modules.Catalog.csproj" />
+    <ProjectReference Include="..\Modules\Sales\Gms.Modules.Sales.csproj" />
+    <ProjectReference Include="..\Modules\Attendance\Gms.Modules.Attendance.csproj" />
+    <ProjectReference Include="..\Modules\Coaching\Gms.Modules.Coaching.csproj" />
+    <ProjectReference Include="..\Modules\Buffet\Gms.Modules.Buffet.csproj" />
+    <ProjectReference Include="..\Modules\Wallet\Gms.Modules.Wallet.csproj" />
+  </ItemGroup>
+
+</Project>
